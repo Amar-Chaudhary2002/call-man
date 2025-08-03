@@ -1,0 +1,31 @@
+<svg width="241" height="241" viewBox="0 0 241 241" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_d_75_734)">
+<path d="M53.4836 52.2227C53.4836 38.2612 64.8017 26.9431 78.7633 26.9431H163.029C176.99 26.9431 188.308 38.2612 188.308 52.2227V136.488C188.308 150.45 176.99 161.768 163.029 161.768H78.7632C64.8017 161.768 53.4836 150.45 53.4836 136.488V52.2227Z" fill="url(#paint0_linear_75_734)"/>
+<g clip-path="url(#clip0_75_734)">
+<g clip-path="url(#clip1_75_734)">
+<path d="M111.9 70.4517C111.14 68.615 109.135 67.6374 107.219 68.1607L98.5295 70.5307C96.8113 71.0047 95.6165 72.5649 95.6165 74.3424C95.6165 98.7728 115.425 118.582 139.856 118.582C141.633 118.582 143.193 117.387 143.667 115.669L146.037 106.979C146.561 105.063 145.583 103.058 143.746 102.298L134.267 98.3482C132.657 97.6767 130.791 98.1408 129.695 99.4936L125.705 104.362C118.753 101.074 113.125 95.445 109.836 88.4931L114.705 84.5135C116.057 83.4075 116.522 81.551 115.85 79.9414L111.9 70.4616V70.4517Z" fill="white"/>
+</g>
+</g>
+</g>
+<defs>
+<filter id="filter0_d_75_734" x="0.817764" y="0.610176" width="240.156" height="240.156" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="26.3329"/>
+<feGaussianBlur stdDeviation="26.3329"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_75_734"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_75_734" result="shape"/>
+</filter>
+<linearGradient id="paint0_linear_75_734" x1="53.4836" y1="94.3554" x2="188.308" y2="94.3554" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3B82F6"/>
+<stop offset="1" stop-color="#9333EA"/>
+</linearGradient>
+<clipPath id="clip0_75_734">
+<rect width="50.5592" height="50.5592" fill="white" transform="translate(95.6165 68.0225)"/>
+</clipPath>
+<clipPath id="clip1_75_734">
+<path d="M95.6165 68.0225H146.176V118.582H95.6165V68.0225Z" fill="white"/>
+</clipPath>
+</defs>
+</svg>
