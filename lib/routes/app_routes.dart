@@ -29,7 +29,7 @@ class AppRoutes {
     customDialer: (_) => const CustomDialerScreen(),
     signUp: (_) => const SignUpScreen(),
     signIn: (_) => const SignInScreen(),
-    otp: (_) => OtpScreen(),
+    otp: (_) => OtpScreen(phoneNumber: '',),
     loginSuccess: (_) => const LoginSuccessScreen(),
     loginWithPassword: (_) => const LoginWithPasswordScreen(),
     home: (_) => const HomeScreen(),
