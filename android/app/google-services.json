@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "702974931804",
+    "project_id": "callman-db6c3",
+    "storage_bucket": "callman-db6c3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:702974931804:android:78186fa6b0b9fff31fc799",
+        "android_client_info": {
+          "package_name": "com.example.call_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzcwb4k-eFuPmh_BcaqSaPJbKvon-bfjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
