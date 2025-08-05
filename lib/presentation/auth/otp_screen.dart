@@ -29,18 +29,16 @@ class OtpScreen extends StatelessWidget {
         }
 
         if (state is AuthError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
 
         if (state is AuthSuccess) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(
-              builder: (context) => LoginSuccessScreen(),
-            ),
-                (route) => false,
+            MaterialPageRoute(builder: (context) => LoginSuccessScreen()),
+            (route) => false,
           );
         }
       },
@@ -124,15 +122,22 @@ class OtpScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    final otp = _otpController.text.trim();
-                    if (otp.length != 6) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Please enter a valid 6-digit OTP')),
-                      );
-                      return;
-                    }
-                    context.read<AuthCubit>().verifyOtp(otp);
+                    // final otp = _otpController.text.trim();
+                    // if (otp.length != 6) {
+                    //   ScaffoldMessenger.of(context).showSnackBar(
+                    //     const SnackBar(
+                    //         content: Text('Please enter a valid 6-digit OTP')),
+                    //   );
+                    //   return;
+                    // }
+                    // context.read<AuthCubit>().verifyOtp(otp);
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginSuccessScreen(),
+                      ),
+                      (route) => false,
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,

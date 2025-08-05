@@ -84,7 +84,6 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> sendOtp(String phoneNumber) async {
     try {
       emit(AuthLoading());
-
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {

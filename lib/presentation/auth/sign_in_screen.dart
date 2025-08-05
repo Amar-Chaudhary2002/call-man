@@ -38,9 +38,9 @@ class _SignInScreenState extends State<SignInScreen> {
           }
 
           if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
 
           if (state is OtpSent) {
@@ -90,7 +90,10 @@ class _SignInScreenState extends State<SignInScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(23.sp),
-                        border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
+                        border: Border.all(
+                          color: Color(0xFFE5E7EB),
+                          width: 0.1,
+                        ),
                         gradient: const LinearGradient(
                           colors: [Color(0xFF082046), Color(0xFF45006E)],
                           begin: Alignment.topLeft,
@@ -153,20 +156,30 @@ class _SignInScreenState extends State<SignInScreen> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () {
-                                final phone = phoneController.text.trim();
-                                if (phone.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Phone number required')),
-                                  );
-                                  return;
-                                }
-                                // Fire AuthCubit sendOtp
-                                context.read<AuthCubit>().sendOtp('$_countryCode$phone');
+                                // final phone = phoneController.text.trim();
+                                // if (phone.isEmpty) {
+                                //   ScaffoldMessenger.of(context).showSnackBar(
+                                //     const SnackBar(
+                                //         content: Text('Phone number required')),
+                                //   );
+                                //   return;
+                                // }
+                                // // Fire AuthCubit sendOtp
+                                // context.read<AuthCubit>().sendOtp('$_countryCode$phone');
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        OtpScreen(phoneNumber: "7049820851"),
+                                  ),
+                                  (route) => false,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
@@ -182,7 +195,10 @@ class _SignInScreenState extends State<SignInScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Icon(Icons.arrow_right_alt, color: Colors.white),
+                                  Icon(
+                                    Icons.arrow_right_alt,
+                                    color: Colors.white,
+                                  ),
                                 ],
                               ),
                             ),
@@ -201,14 +217,19 @@ class _SignInScreenState extends State<SignInScreen> {
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
                               ),
                               child: const Text(
                                 "Login with password",
-                                style: TextStyle(color: Colors.white, fontSize: 16),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ),
@@ -217,7 +238,9 @@ class _SignInScreenState extends State<SignInScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => SignUpScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => SignUpScreen(),
+                                ),
                               );
                             },
                             child: const Text.rich(
@@ -279,10 +302,10 @@ class _SignInScreenState extends State<SignInScreen> {
               items: <String>['+91', '+1', '+44', '+61']
                   .map<DropdownMenuItem<String>>(
                     (String value) => DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                ),
-              )
+                      value: value,
+                      child: Text(value),
+                    ),
+                  )
                   .toList(),
               onChanged: (String? newValue) {
                 if (newValue != null) onCountryChanged(newValue);

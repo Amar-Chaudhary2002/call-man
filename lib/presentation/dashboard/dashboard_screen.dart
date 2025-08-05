@@ -272,12 +272,10 @@ class CallTrackingService {
   void _handleCallStateChange(dynamic data) {
     try {
       final Map<String, dynamic> callData = Map<String, dynamic>.from(data);
-
       final phoneNumber = callData['phoneNumber'] as String? ?? '';
       final stateString = callData['state'] as String? ?? 'idle';
       final isOutgoing = callData['isOutgoing'] as bool? ?? false;
       final isConnected = callData['isConnected'] as bool? ?? false;
-
       final state = _parseCallState(stateString);
       final now = DateTime.now();
 

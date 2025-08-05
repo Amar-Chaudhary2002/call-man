@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:call_app/core/image_constant.dart';
 import 'package:call_app/core/constant/app_color.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -32,7 +33,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      // Navigate to SignUp using named route
       Navigator.pushReplacementNamed(context, AppRoutes.signUp);
     }
   }
@@ -42,7 +42,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final List<_OnboardingContent> pages = [
       _OnboardingContent(
         icon: ImageConstant.callguard,
-        title: "Welcome to CallGuard",
+        title: "Welcome to CallMan",
         description:
             "Your smart companion for better call\nmanagement and protection",
         bullets: const [],
@@ -57,6 +57,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           "Community-based blocking",
           "Custom block lists",
         ],
+        bulletIcons: const [
+          "assets/icons/right.svg",
+          "assets/icons/right.svg",
+          "assets/icons/right.svg",
+        ],
       ),
       _OnboardingContent(
         icon: ImageConstant.smarticon,
@@ -64,6 +69,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         description:
             "Group and tag your calls intelligently. Never lose track of important conversations with automatic categorization.",
         bullets: const ["Auto Tagging", "Smart Grouping", "Quick Search"],
+        bulletIcons: const [
+          "assets/icons/svg.svg",
+          "assets/icons/svg (1).svg",
+          "assets/icons/svg (2).svg",
+        ],
+        bulletSubtitles: [
+          "Automatically categorize calls by type",
+          "Related calls grouped together",
+          "Find any call in seconds",
+        ],
       ),
       _OnboardingContent(
         icon: ImageConstant.customdialor,
@@ -71,6 +86,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         description:
             "Personalize your dialer with quick actions and smart shortcuts for faster calling",
         bullets: const ["Quick Actions", "Smart Suggestions"],
+        bulletIcons: const [
+          "assets/icons/svg (3).svg",
+          "assets/icons/svg (4).svg",
+        ],
+        bulletSubtitles: [
+          "Find any call in seconds",
+          "Get intelligent contact suggestions while typing",
+        ],
       ),
     ];
 
@@ -79,18 +102,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // if (_currentPage == 0) ...[
-            //   Align(
-            //     alignment: Alignment.topRight,
-            //     child: TextButton(
-            //       onPressed: _skip,
-            //       child: const Text(
-            //         "Skip",
-            //         style: TextStyle(color: Colors.white),
-            //       ),
-            //     ),
-            //   ),
-            // ],
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -110,26 +121,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              if (index > 0)
-                                IconButton(
-                                  onPressed: () {
-                                    _pageController.previousPage(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.arrow_back,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 48),
+                              IconButton(
+                                onPressed: () {
+                                  _pageController.previousPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                ),
+                              ),
                               Text(
                                 '${index + 1} of ${pages.length}',
                                 style: TextStyle(
+                                  fontFamily: "Roboto",
                                   color: Colors.white,
                                   fontSize: 14.sp,
                                 ),
@@ -144,7 +151,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               Colors.white,
                             ),
                           ),
-                          Spacer(),
+                          const Spacer(),
                         ],
                         Center(
                           child: SvgPicture.asset(
@@ -156,46 +163,116 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         Text(
                           page.title,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: "Roboto",
+                          style: GoogleFonts.roboto(
                             fontWeight: FontWeight.w700,
                             fontSize: 30.sp,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 11),
                         Text(
                           page.description,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: "Roboto",
+                          style: GoogleFonts.roboto(
                             fontWeight: FontWeight.w400,
                             fontSize: 18.sp,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 50),
                         if (page.bullets.isNotEmpty)
                           Column(
-                            children: page.bullets.map((e) {
+                            children: List.generate(page.bullets.length, (i) {
+                              // Example condition: Make first bullet on page 3 circular
+                              bool isCircular = index == 1 || index == 2;
+
+                              double containerSize;
+
+                              if (index == 1) {
+                                containerSize = 35;
+                              } else if (index == 2) {
+                                containerSize = 45;
+                              } else if (index == 3) {
+                                containerSize = 52;
+                              } else {
+                                containerSize = 45;
+                              }
+                              double bottomPadding;
+
+                              if (index == 1) {
+                                bottomPadding = 16.0;
+                              } else if (index == 2) {
+                                bottomPadding = 28.0;
+                              } else if (index == 3) {
+                                bottomPadding = 28.0;
+                              } else {
+                                bottomPadding = 16.0;
+                              }
                               return Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
+                                padding: EdgeInsets.only(bottom: bottomPadding),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    const Icon(
-                                      Icons.check_circle,
-                                      size: 20,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        e,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16.sp,
-                                        ),
+                                    Container(
+                                      width: containerSize,
+                                      height: containerSize,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: isCircular
+                                            ? BorderRadius.circular(999)
+                                            : BorderRadius.circular(12),
                                       ),
+                                      child: SvgPicture.asset(
+                                        page.bulletIcons.length > i
+                                            ? page.bulletIcons[i]
+                                            : ImageConstant.callguard,
+                                        height: 30,
+                                        width: 30,
+                                      ),
+                                    ),
+                                    SizedBox(width: 16.w),
+                                    Expanded(
+                                      child:
+                                          page.bulletSubtitles.length > i &&
+                                              page.bulletSubtitles[i]
+                                                  .trim()
+                                                  .isNotEmpty
+                                          ? Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  page.bullets[i],
+                                                  style: TextStyle(
+                                                    fontFamily: "Roboto",
+                                                    color: Colors.white,
+                                                    fontSize: 16.sp,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  page.bulletSubtitles[i],
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white,
+                                                    fontSize: 12.sp,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                page.bullets[i],
+                                                style: TextStyle(
+                                                  fontFamily: "Roboto",
+                                                  color: Colors.white,
+                                                  fontSize: 16.sp,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
                                     ),
                                   ],
                                 ),
@@ -209,33 +286,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 },
               ),
             ),
-
             if (_currentPage > 0) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Left: Dot indicators
-                    Center(
-                      child: Row(
-                        children: List.generate(
-                          pages.length,
-                          (index) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: DotIndicator(
-                              isActive: index == _currentPage,
-                            ),
-                          ),
+                    Row(
+                      children: List.generate(
+                        pages.length,
+                        (index) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: DotIndicator(isActive: index == _currentPage),
                         ),
                       ),
                     ),
-                    // Right: Skip button
                     TextButton(
                       onPressed: _skip,
-                      child: const Text(
+                      child: Text(
                         "Skip",
-                        style: TextStyle(color: Colors.white),
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -259,7 +333,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: Text(
                     _currentPage == 0 ? "Get Started" : "Continue",
-                    style: const TextStyle(color: Colors.white),
+                    style: GoogleFonts.roboto(
+                      color: Colors.white,
+                      fontSize: 16.85.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -294,12 +372,15 @@ class _OnboardingContent {
   final String title;
   final String description;
   final List<String> bullets;
-  // final bool progressbar;
+  final List<String> bulletSubtitles;
+  final List<String> bulletIcons;
+
   const _OnboardingContent({
     required this.icon,
     required this.title,
     required this.description,
     required this.bullets,
-    // this.progressbar = false,
+    this.bulletSubtitles = const [],
+    this.bulletIcons = const [],
   });
 }
