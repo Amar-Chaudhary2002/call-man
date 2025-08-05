@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:android_intent_plus/flag.dart';
+import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:call_log/call_log.dart';
@@ -456,10 +458,16 @@ class _HomeScreenState extends State<HomeScreen> {
           'Recent Calls',
           style: TextStyle(color: Colors.white),
         ),
-        actions: const [
+        actions: [
           Padding(
             padding: EdgeInsets.only(right: 16.0),
             child: Icon(Icons.search, color: Colors.white),
+          ),
+          IconButton(
+            onPressed: () {
+              context.read<AuthCubit>().signOut();
+            },
+            icon: Icon(Icons.logout),
           ),
         ],
       ),

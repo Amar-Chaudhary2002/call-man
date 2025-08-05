@@ -1,24 +1,26 @@
-// models/user_model.dart
+import 'dart:developer';
+
+import 'package:firebase_auth/firebase_auth.dart';
+
 class UserModel {
   final String id;
-  final String email;
+  final String? email;
   final String? phoneNumber;
   final String? displayName;
 
-  UserModel({
-    required this.id,
-    required this.email,
-    this.phoneNumber,
-    this.displayName,
-  });
+  UserModel({required this.id, this.email, this.phoneNumber, this.displayName});
 
-  factory UserModel.fromFirebaseUser(dynamic firebaseUser) {
+  static UserModel fromFirebaseUser(User user) {
+    log('🔥 UserModel.fromFirebaseUser called');
+    log('🔥 UserModel - User UID: ${user.uid}');
+    log('🔥 UserModel - User email: ${user.email}');
+    log('🔥 UserModel - User phone: ${user.phoneNumber}');
+
     return UserModel(
-      id: firebaseUser.uid,
-      email: firebaseUser.email ?? '',
-      phoneNumber: firebaseUser.phoneNumber,
-      displayName: firebaseUser.displayName,
+      id: user.uid,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      displayName: user.displayName,
     );
   }
 }
-

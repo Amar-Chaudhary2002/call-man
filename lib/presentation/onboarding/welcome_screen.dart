@@ -1,5 +1,10 @@
+import 'dart:developer';
+import 'package:call_app/blocs/auth/auth_cubit.dart';
+import 'package:call_app/blocs/auth/auth_state.dart';
+import 'package:call_app/presentation/dashboard/dashboard_screen.dart';
 import 'package:call_app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:call_app/core/image_constant.dart';
@@ -15,6 +20,22 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _hasCheckedAuth = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthStatus();
+  }
+
+  // 🔥 Simple auth check without SharedPreferences
+  void _checkAuthStatus() {
+    if (!_hasCheckedAuth) {
+      log('🔥 WelcomeScreen: Checking auth status...');
+      context.read<AuthCubit>().checkAuthStatus();
+      _hasCheckedAuth = true;
+    }
+  }
 
   void _onPageChanged(int index) {
     setState(() {
@@ -33,12 +54,58 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         curve: Curves.easeInOut,
       );
     } else {
+      // Go to sign up after onboarding
       Navigator.pushReplacementNamed(context, AppRoutes.signUp);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        log('🚀 WelcomeScreen - Auth state: ${state.runtimeType}');
+
+        // If user is already authenticated, go to home
+        if (state is AuthSuccess) {
+          log('🚀 WelcomeScreen - ✅ User authenticated, navigating to home');
+          Navigator.pushReplacementNamed(context, AppRoutes.home);
+        }
+      },
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          log('🚀 WelcomeScreen - Building with state: ${state.runtimeType}');
+          // Show loading only briefly while checking auth
+          if (state is AuthLoading && !_hasCheckedAuth) {
+            return Scaffold(
+              backgroundColor: AppColors.primaryColor,
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Checking authentication...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          if (state is AuthSuccess) {
+            return HomeScreen();
+          }
+          // Show onboarding for non-authenticated users
+          return _buildOnboardingScreen();
+        },
+      ),
+    );
+  }
+
+  // 🔥 Your existing onboarding screen code
+  Widget _buildOnboardingScreen() {
     final List<_OnboardingContent> pages = [
       _OnboardingContent(
         icon: ImageConstant.callguard,
@@ -183,11 +250,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         if (page.bullets.isNotEmpty)
                           Column(
                             children: List.generate(page.bullets.length, (i) {
-                              // Example condition: Make first bullet on page 3 circular
                               bool isCircular = index == 1 || index == 2;
 
                               double containerSize;
-
                               if (index == 1) {
                                 containerSize = 35;
                               } else if (index == 2) {
@@ -197,8 +262,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               } else {
                                 containerSize = 45;
                               }
-                              double bottomPadding;
 
+                              double bottomPadding;
                               if (index == 1) {
                                 bottomPadding = 16.0;
                               } else if (index == 2) {
@@ -208,6 +273,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               } else {
                                 bottomPadding = 16.0;
                               }
+
                               return Padding(
                                 padding: EdgeInsets.only(bottom: bottomPadding),
                                 child: Row(
@@ -350,6 +416,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 }
 
+// Your existing classes remain the same
 class DotIndicator extends StatelessWidget {
   final bool isActive;
   const DotIndicator({super.key, required this.isActive});
