@@ -19,14 +19,33 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   final phoneController = TextEditingController();
   String _countryCode = '+91';
+  late AuthCubit _authCubit;
+  bool _isDialogShowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authCubit = AuthCubit();
+  }
+
+  @override
+  void dispose() {
+    phoneController.dispose();
+    _authCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AuthCubit(),
+    return BlocProvider.value(
+      value: _authCubit,
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
+          print('🔥 SignIn BlocListener - Auth state changed: ${state.runtimeType}');
+
           if (state is AuthLoading) {
+            print('🔥 SignIn - AuthLoading detected');
+            _isDialogShowing = true;
             showDialog(
               context: context,
               barrierDismissible: false,
@@ -34,26 +53,41 @@ class _SignInScreenState extends State<SignInScreen> {
             );
           } else {
             // Remove loader if present
-            if (Navigator.canPop(context)) Navigator.pop(context);
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              print('🔥 SignIn - Closing loading dialog');
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
           }
 
           if (state is AuthError) {
+            print('🔥 SignIn - AuthError detected: ${state.message}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
           }
 
           if (state is OtpSent) {
-            // Navigate to OTP screen once OTP is sent
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OtpScreen(
-                  verificationId: state.verificationId,
-                  phoneNumber: state.phoneNumber,
-                ),
-              ),
-            );
+            print('🔥 SignIn - OtpSent detected! Verification ID: ${state.verificationId}');
+            print('🔥 SignIn - Phone number: ${state.phoneNumber}');
+
+            // Navigate after a short delay to ensure dialog is closed
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              print('🔥 SignIn - PostFrameCallback executing, mounted: $mounted');
+              if (mounted) {
+                print('🔥 SignIn - Actually navigating to OTP screen');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OtpScreen(
+                      verificationId: state.verificationId,
+                      phoneNumber: state.phoneNumber,
+                    ),
+                  ),
+                );
+                print('🔥 SignIn - Navigation to OTP screen completed');
+              }
+            });
           }
         },
         child: Scaffold(
@@ -61,200 +95,201 @@ class _SignInScreenState extends State<SignInScreen> {
           resizeToAvoidBottomInset: false,
           body: SingleChildScrollView(
             child: Column(
-              children: [
+                children: [
                 SizedBox(height: 50.h),
-                Image.asset(ImageConstant.callmanicon),
-                SizedBox(height: 1.h),
-                Text(
-                  "CallMan",
-                  style: TextStyle(
+            Image.asset(ImageConstant.callmanicon),
+            SizedBox(height: 1.h),
+            Text(
+              "CallMan",
+              style: TextStyle(
+                fontFamily: "Roboto",
+                color: Colors.white,
+                fontSize: 30.sp,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              "Manage your calls efficiently",
+              style: TextStyle(
+                fontFamily: "Roboto",
+                color: Colors.white,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            SizedBox(height: 36.h),
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(23.sp),
+                    border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF082046), Color(0xFF45006E)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0x66000000),
+                        offset: const Offset(0, 25),
+                        blurRadius: 50,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                      SizedBox(height: 6.h),
+                  Text(
+                    "Welcome Back",
+                    style: TextStyle(
+                      fontFamily: "Roboto",
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    "Sign In to your account",
+                    style: TextStyle(
+                      fontFamily: "Roboto",
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  phoneNumberField(
+                    hint: "9876543210",
+                    controller: phoneController,
+                    initialCountryCode: _countryCode,
+                    onCountryChanged: (val) {
+                      setState(() => _countryCode = val);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    textAlign: TextAlign.center,
+                    '** By proceeding you are agreeing to CallMan’s Terms and conditions \n& Privacy Policy',
+                    style: TextStyle(
                     fontFamily: "Roboto",
+                    fontSize: 9.2.sp,
+                    fontWeight: FontWeight.w500,
                     color: Colors.white,
-                    fontSize: 30.sp,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(
-                  "Manage your calls efficiently",
-                  style: TextStyle(
-                    fontFamily: "Roboto",
-                    color: Colors.white,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                SizedBox(height: 36.h),
-                Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(23.sp),
-                        border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF082046), Color(0xFF45006E)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                SizedBox(height: 200.h),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final phone = phoneController.text.trim();
+                      if (phone.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Phone number required'),
+                          ),
+                        );
+                        return;
+                      }
+                      print("🚀 SignIn - calling to otp screen with phone: $_countryCode$phone");
+
+                      // Use the stored cubit instance directly
+                      _authCubit.sendOtp('$_countryCode$phone');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          "Send OTP",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0x66000000),
-                            offset: const Offset(0, 25),
-                            blurRadius: 50,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(height: 6.h),
-                          Text(
-                            "Welcome Back",
-                            style: TextStyle(
-                              fontFamily: "Roboto",
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            "Sign In to your account",
-                            style: TextStyle(
-                              fontFamily: "Roboto",
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          phoneNumberField(
-                            hint: "9876543210",
-                            controller: phoneController,
-                            initialCountryCode: _countryCode,
-                            onCountryChanged: (val) {
-                              setState(() => _countryCode = val);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            textAlign: TextAlign.center,
-                            '** By proceeding you are agreeing to CallMan’s Terms and conditions \n& Privacy Policy',
-                            style: TextStyle(
-                              fontFamily: "Roboto",
-                              fontSize: 9.2.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(height: 200.h),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final phone = phoneController.text.trim();
-                                if (phone.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Phone number required'),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                // Fire AuthCubit sendOtp
-                                context.read<AuthCubit>().sendOtp('$_countryCode$phone');
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(9),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Text(
-                                    "Send OTP",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_right_alt, color: Colors.white),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => LoginWithPasswordScreen(),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(9),
-                                ),
-                              ),
-                              child: const Text(
-                                "Login with password",
-                                style: TextStyle(color: Colors.white, fontSize: 16),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => SignUpScreen()),
-                              );
-                            },
-                            child: const Text.rich(
-                              TextSpan(
-                                text: "Don't have an account? ",
-                                style: TextStyle(color: Colors.white70),
-                                children: [
-                                  TextSpan(
-                                    text: "Sign Up",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_right_alt, color: Colors.white),
+                      ],
                     ),
                   ),
                 ),
-                SizedBox(height: 5.h),
-                const Text(
-                  "Your data is protected with end-to-end encryption",
-                  style: TextStyle(color: Colors.white, fontSize: 10),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LoginWithPasswordScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                    ),
+                    child: const Text(
+                      "Login with password",
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
                 ),
-              ],
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => SignUpScreen()),
+                    );
+                  },
+                  child: const Text.rich(
+                    TextSpan(
+                      text: "Don't have an account? ",
+                      style: TextStyle(color: Colors.white70),
+                      children: [
+                        TextSpan(
+                          text: "Sign Up",
+                          style: TextStyle(
+                            color: Colors.white,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ],
+              ),
             ),
           ),
         ),
-      )
-      ,
+        SizedBox(height: 5.h),
+        const Text(
+          "Your data is protected with end-to-end encryption",
+          style: TextStyle(color: Colors.white, fontSize: 10),
+          textAlign: TextAlign.center,
+        ),
+        ],
+      ),
+    ),
+    ),
+    ),
     );
   }
 

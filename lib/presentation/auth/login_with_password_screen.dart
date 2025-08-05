@@ -1,11 +1,15 @@
+// Fixed LoginWithPasswordScreen with proper navigation handling
+
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/core/image_constant.dart';
+import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
+import '../../routes/app_routes.dart';
 
 class LoginWithPasswordScreen extends StatefulWidget {
   const LoginWithPasswordScreen({super.key});
@@ -18,46 +22,82 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passController = TextEditingController();
   bool rememberMe = false;
-  bool obscurePassword = true; // For toggling password visibility
+  bool obscurePassword = true;
+  bool _isDialogShowing = false;
+  late AuthCubit _authCubit; // Store reference to cubit
+
+  @override
+  void initState() {
+    super.initState();
+    _authCubit = AuthCubit(); // Create cubit instance
+  }
 
   @override
   void dispose() {
     emailController.dispose();
     passController.dispose();
+    _authCubit.close(); // Close cubit
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AuthCubit(),
+    return BlocProvider.value(
+      value: _authCubit,
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
+          print('🔥 BlocListener - Auth state changed: ${state.runtimeType}');
+
           if (state is AuthLoading) {
-            // Show loader (showDialog, snackbar, etc.)
+            print('🔥 BlocListener - AuthLoading detected');
+            _isDialogShowing = true;
             showDialog(
               context: context,
               barrierDismissible: false,
               builder: (_) => const Center(child: CircularProgressIndicator()),
             );
-          } else {
-            // Remove loader
-            if (Navigator.canPop(context)) Navigator.pop(context);
           }
 
           if (state is AuthError) {
+            print('🔥 BlocListener - AuthError detected: ${state.message}');
+            // Close loading dialog if open
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
           }
 
           if (state is AuthSuccess) {
-            // Navigate to home or dashboard, or do whatever needed
-            // For demo:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Login successful!')),
-            );
-            // Navigator.pushReplacement(...);
+            print('🔥 BlocListener - AuthSuccess detected! User: ${state.user.id}');
+
+            // Close loading dialog if open
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              print('🔥 Closing loading dialog');
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
+
+            print('🔥 About to navigate to LoginSuccessScreen');
+
+            // Navigate immediately
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              print('🔥 PostFrameCallback executing, mounted: $mounted');
+              if (mounted) {
+                print('🔥 Actually navigating now');
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginSuccessScreen(),
+                  ),
+                      (route) => false,
+                );
+                print('🔥 Navigation completed');
+              }
+            });
           }
         },
         child: Scaffold(
@@ -189,7 +229,6 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              // Inside the onPressed method for "Login"
                               onPressed: () {
                                 final email = emailController.text.trim();
                                 final password = passController.text.trim();
@@ -201,13 +240,12 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                                   return;
                                 }
 
-                                print('Attempting login with email: $email');
-                                context.read<AuthCubit>().loginWithEmail(
+                                print('🚀 Attempting login with email: $email');
+                                _authCubit.loginWithEmail(
                                   email: email,
                                   password: password,
                                 );
                               },
-
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 padding: const EdgeInsets.symmetric(vertical: 15),

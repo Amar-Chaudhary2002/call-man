@@ -56,6 +56,7 @@ class AuthCubit extends Cubit<AuthState> {
 
       if (result.user != null) {
         print('Login successful for user: ${result.user!.uid}');
+
         emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
       }
     } on FirebaseAuthException catch (e) {
@@ -113,7 +114,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // Verify OTP
-  Future<void> verifyOtp(String otp, {String? verificationId}) async {
+  Future<void> verifyOtp(String otp, String verificationId) async {
     try {
       emit(AuthLoading());
 

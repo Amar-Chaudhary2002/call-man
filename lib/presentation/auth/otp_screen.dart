@@ -143,7 +143,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       );
                       return;
                     }
-                    context.read<AuthCubit>().verifyOtp(otp);
+                    context.read<AuthCubit>().verifyOtp(otp,widget.verificationId);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
