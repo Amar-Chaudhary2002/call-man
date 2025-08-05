@@ -1,5 +1,10 @@
+// Fixed LoginWithPasswordScreen with proper navigation handling
+
+import 'dart:developer';
+
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/core/image_constant.dart';
+import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,53 +16,92 @@ class LoginWithPasswordScreen extends StatefulWidget {
   const LoginWithPasswordScreen({super.key});
 
   @override
-  State<LoginWithPasswordScreen> createState() => _LoginWithPasswordScreenState();
+  State<LoginWithPasswordScreen> createState() =>
+      _LoginWithPasswordScreenState();
 }
 
 class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passController = TextEditingController();
   bool rememberMe = false;
-  bool obscurePassword = true; // For toggling password visibility
+  bool obscurePassword = true;
+  bool _isDialogShowing = false;
+  late AuthCubit _authCubit; // Store reference to cubit
+
+  @override
+  void initState() {
+    super.initState();
+    _authCubit = AuthCubit(); // Create cubit instance
+  }
 
   @override
   void dispose() {
     emailController.dispose();
     passController.dispose();
+    _authCubit.close(); // Close cubit
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AuthCubit(),
+    return BlocProvider.value(
+      value: _authCubit,
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
+          log('🔥 BlocListener - Auth state changed: ${state.runtimeType}');
+
           if (state is AuthLoading) {
-            // Show loader (showDialog, snackbar, etc.)
+            log('🔥 BlocListener - AuthLoading detected');
+            _isDialogShowing = true;
             showDialog(
               context: context,
               barrierDismissible: false,
               builder: (_) => const Center(child: CircularProgressIndicator()),
             );
-          } else {
-            // Remove loader
-            if (Navigator.canPop(context)) Navigator.pop(context);
           }
 
           if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            log('🔥 BlocListener - AuthError detected: ${state.message}');
+            // Close loading dialog if open
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
 
           if (state is AuthSuccess) {
-            // Navigate to home or dashboard, or do whatever needed
-            // For demo:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Login successful!')),
+            log(
+              '🔥 BlocListener - AuthSuccess detected! User: ${state.user.id}',
             );
-            // Navigator.pushReplacement(...);
+
+            // Close loading dialog if open
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              log('🔥 Closing loading dialog');
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
+
+            log('🔥 About to navigate to LoginSuccessScreen');
+
+            // Navigate immediately
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              log('🔥 PostFrameCallback executing, mounted: $mounted');
+              if (mounted) {
+                log('🔥 Actually navigating now');
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginSuccessScreen(),
+                  ),
+                  (route) => false,
+                );
+                log('🔥 Navigation completed');
+              }
+            });
           }
         },
         child: Scaffold(
@@ -95,7 +139,10 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(23.sp),
-                        border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
+                        border: Border.all(
+                          color: Color(0xFFE5E7EB),
+                          width: 0.1,
+                        ),
                         gradient: const LinearGradient(
                           colors: [Color(0xFF082046), Color(0xFF45006E)],
                           begin: Alignment.topLeft,
@@ -150,7 +197,9 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                                 : Icons.visibility_off_outlined,
                             obscureText: obscurePassword,
                             onSuffixTap: () {
-                              setState(() => obscurePassword = !obscurePassword);
+                              setState(
+                                () => obscurePassword = !obscurePassword,
+                              );
                             },
                           ),
                           const SizedBox(height: 8),
@@ -192,30 +241,39 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                               onPressed: () {
                                 final email = emailController.text.trim();
                                 final password = passController.text.trim();
+
                                 if (email.isEmpty || password.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Email and password required'),
+                                      content: Text(
+                                        'Email and password required',
+                                      ),
                                     ),
                                   );
                                   return;
                                 }
-                                // Call AuthCubit
-                                context.read<AuthCubit>().loginWithEmail(
+
+                                log('🚀 Attempting login with email: $email');
+                                _authCubit.loginWithEmail(
                                   email: email,
                                   password: password,
                                 );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
                               ),
                               child: const Text(
                                 "Login",
-                                style: TextStyle(color: Colors.white, fontSize: 16),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ),
@@ -224,7 +282,9 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => SignUpScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => SignUpScreen(),
+                                ),
                               );
                             },
                             child: const Text.rich(
@@ -285,9 +345,9 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
         fillColor: const Color(0xFF25316D),
         suffixIcon: icon != null
             ? GestureDetector(
-          onTap: onSuffixTap,
-          child: Icon(icon, color: Colors.white54),
-        )
+                onTap: onSuffixTap,
+                child: Icon(icon, color: Colors.white54),
+              )
             : null,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,

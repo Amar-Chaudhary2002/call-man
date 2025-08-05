@@ -19,14 +19,35 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   final phoneController = TextEditingController();
   String _countryCode = '+91';
+  late AuthCubit _authCubit;
+  bool _isDialogShowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authCubit = AuthCubit();
+  }
+
+  @override
+  void dispose() {
+    phoneController.dispose();
+    _authCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AuthCubit(),
+    return BlocProvider.value(
+      value: _authCubit,
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
+          print(
+            '🔥 SignIn BlocListener - Auth state changed: ${state.runtimeType}',
+          );
+
           if (state is AuthLoading) {
+            print('🔥 SignIn - AuthLoading detected');
+            _isDialogShowing = true;
             showDialog(
               context: context,
               barrierDismissible: false,
@@ -34,25 +55,48 @@ class _SignInScreenState extends State<SignInScreen> {
             );
           } else {
             // Remove loader if present
-            if (Navigator.canPop(context)) Navigator.pop(context);
+            if (_isDialogShowing && Navigator.canPop(context)) {
+              print('🔥 SignIn - Closing loading dialog');
+              Navigator.pop(context);
+              _isDialogShowing = false;
+            }
           }
 
           if (state is AuthError) {
+            print('🔥 SignIn - AuthError detected: ${state.message}');
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
           }
 
           if (state is OtpSent) {
-            // Proceed to OTP screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OtpScreen(
-                  phoneNumber: '$_countryCode ${phoneController.text.trim()}',
-                ),
-              ),
+            print(
+              '🔥 SignIn - OtpSent detected! Verification ID: ${state.verificationId}',
             );
+            print('🔥 SignIn - Phone number: ${state.phoneNumber}');
+
+            // Navigate after a short delay to ensure dialog is closed
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              print(
+                '🔥 SignIn - PostFrameCallback executing, mounted: $mounted',
+              );
+              if (mounted) {
+                print('🔥 SignIn - Actually navigating to OTP screen');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OtpScreen(
+                      verificationId: state.verificationId,
+                      phoneNumber: state.phoneNumber,
+                    ),
+                  ),
+                );
+                print('🔥 SignIn - Navigation to OTP screen completed');
+              }
+            });
           }
         },
         child: Scaffold(
@@ -156,24 +200,21 @@ class _SignInScreenState extends State<SignInScreen> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () {
-                                // final phone = phoneController.text.trim();
-                                // if (phone.isEmpty) {
-                                //   ScaffoldMessenger.of(context).showSnackBar(
-                                //     const SnackBar(
-                                //         content: Text('Phone number required')),
-                                //   );
-                                //   return;
-                                // }
-                                // // Fire AuthCubit sendOtp
-                                // context.read<AuthCubit>().sendOtp('$_countryCode$phone');
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        OtpScreen(phoneNumber: "7049820851"),
-                                  ),
-                                  (route) => false,
+                                final phone = phoneController.text.trim();
+                                if (phone.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Phone number required'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                print(
+                                  "🚀 SignIn - calling to otp screen with phone: $_countryCode$phone",
                                 );
+
+                                // Use the stored cubit instance directly
+                                _authCubit.sendOtp('$_countryCode$phone');
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,

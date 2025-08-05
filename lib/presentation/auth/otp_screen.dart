@@ -7,11 +7,22 @@ import 'package:pinput/pinput.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
 
-class OtpScreen extends StatelessWidget {
+class OtpScreen extends StatefulWidget {
+  final String verificationId;
   final String phoneNumber;
-  final TextEditingController _otpController = TextEditingController();
 
-  OtpScreen({super.key, required this.phoneNumber});
+  const OtpScreen({
+    required this.verificationId,
+    required this.phoneNumber,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<OtpScreen> createState() => _OtpScreenState();
+}
+
+class _OtpScreenState extends State<OtpScreen> {
+  final TextEditingController _otpController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +81,7 @@ class OtpScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "Enter the OTP sent to $phoneNumber",
+                "Enter the OTP sent to ${widget.phoneNumber}",
                 style: const TextStyle(color: Colors.white70, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
@@ -106,7 +117,7 @@ class OtpScreen extends StatelessWidget {
               TextButton(
                 onPressed: () {
                   // You can call resend here if needed
-                  context.read<AuthCubit>().sendOtp(phoneNumber);
+                  context.read<AuthCubit>().sendOtp(widget.phoneNumber);
                 },
                 child: const Text(
                   "Resend OTP",
@@ -122,21 +133,18 @@ class OtpScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // final otp = _otpController.text.trim();
-                    // if (otp.length != 6) {
-                    //   ScaffoldMessenger.of(context).showSnackBar(
-                    //     const SnackBar(
-                    //         content: Text('Please enter a valid 6-digit OTP')),
-                    //   );
-                    //   return;
-                    // }
-                    // context.read<AuthCubit>().verifyOtp(otp);
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => LoginSuccessScreen(),
-                      ),
-                      (route) => false,
+                    final otp = _otpController.text.trim();
+                    if (otp.length != 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid 6-digit OTP'),
+                        ),
+                      );
+                      return;
+                    }
+                    context.read<AuthCubit>().verifyOtp(
+                      otp,
+                      widget.verificationId,
                     );
                   },
                   style: ElevatedButton.styleFrom(

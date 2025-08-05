@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -116,11 +115,20 @@ class CallRecord {
     final callDate = DateTime(startTime.year, startTime.month, startTime.day);
 
     if (callDate == today) {
-      return "${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
+      final hour = startTime.hour == 0
+          ? 12
+          : (startTime.hour > 12 ? startTime.hour - 12 : startTime.hour);
+      return "$hour:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
     } else if (callDate == yesterday) {
-      return "${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
+      final hour = startTime.hour == 0
+          ? 12
+          : (startTime.hour > 12 ? startTime.hour - 12 : startTime.hour);
+      return "Yesterday ${hour}:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
     } else {
-      return "${_getMonthName(startTime.month)} ${startTime.day}, ${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
+      final hour = startTime.hour == 0
+          ? 12
+          : (startTime.hour > 12 ? startTime.hour - 12 : startTime.hour);
+      return "${_getMonthName(startTime.month)} ${startTime.day}, $hour:${startTime.minute.toString().padLeft(2, '0')} ${startTime.hour >= 12 ? 'PM' : 'AM'}";
     }
   }
 
@@ -155,11 +163,8 @@ class CallRecord {
   }
 }
 
-// Call tracking service
+// Simplified Call tracking service without native channels
 class CallTrackingService {
-  static const MethodChannel _channel = MethodChannel('call_tracking');
-  static const EventChannel _eventChannel = EventChannel('call_state_events');
-
   static CallTrackingService? _instance;
   static CallTrackingService get instance =>
       _instance ??= CallTrackingService._();
@@ -169,244 +174,107 @@ class CallTrackingService {
   // Stream controllers
   final StreamController<CallRecord> _callStateController =
       StreamController<CallRecord>.broadcast();
-  final StreamController<bool> _networkStatusController =
-      StreamController<bool>.broadcast();
   final StreamController<List<CallRecord>> _callHistoryController =
       StreamController<List<CallRecord>>.broadcast();
 
   // Current call tracking
   CallRecord? _currentCall;
-  bool _isNetworkConnected = true;
-  StreamSubscription? _callStateSubscription;
   List<CallRecord> _callHistory = [];
 
   // Getters
   Stream<CallRecord> get callStateStream => _callStateController.stream;
-  Stream<bool> get networkStatusStream => _networkStatusController.stream;
   Stream<List<CallRecord>> get callHistoryStream =>
       _callHistoryController.stream;
   CallRecord? get currentCall => _currentCall;
-  bool get isNetworkConnected => _isNetworkConnected;
   List<CallRecord> get callHistory => List.unmodifiable(_callHistory);
 
   // Initialize the service
   Future<bool> initialize() async {
     try {
-      // Request necessary permissions
-      final permissionsGranted = await _requestPermissions();
-      if (!permissionsGranted) {
-        log('❌ Required permissions not granted');
-        // Continue anyway for demo purposes
-      }
+      // Request phone permission
+      await _requestPermissions();
 
-      // Setup method channel handlers
-      _channel.setMethodCallHandler(_handleMethodCall);
+      // Load demo call history
+      _addDemoCallHistory();
 
-      // Listen to call state events
-      _callStateSubscription = _eventChannel.receiveBroadcastStream().listen(
-        _handleCallStateEvent,
-        onError: (error) {
-          log('❌ Call state event error: $error');
-        },
-      );
-
-      // Load existing call history
-      await _loadCallHistory();
-
-      // Initialize native service (if available)
-      try {
-        final result = await _channel.invokeMethod('initialize');
-        log('✅ Call tracking service initialized: $result');
-      } catch (e) {
-        log('⚠️ Native call tracking not available, using fallback mode');
-        _addDemoCallHistory(); // Add some demo data for testing
-      }
-
+      log('✅ Call tracking service initialized in demo mode');
       return true;
     } catch (e) {
       log('❌ Failed to initialize call tracking service: $e');
       _addDemoCallHistory(); // Add demo data as fallback
-      return true; // Continue with demo mode
+      return true;
     }
   }
 
   // Request required permissions
-  Future<bool> _requestPermissions() async {
-    final permissions = [
-      Permission.phone,
-      Permission.microphone,
-      Permission.storage,
-    ];
-
-    Map<Permission, PermissionStatus> statuses = await permissions.request();
-
-    return statuses.values.any(
-      (status) =>
-          status == PermissionStatus.granted ||
-          status == PermissionStatus.limited,
-    );
-  }
-
-  // Handle method calls from native
-  Future<dynamic> _handleMethodCall(MethodCall call) async {
-    switch (call.method) {
-      case 'onCallStateChanged':
-        _handleCallStateChange(call.arguments);
-        break;
-      case 'onNetworkStatusChanged':
-        _handleNetworkStatusChange(call.arguments);
-        break;
-      default:
-        log('⚠️ Unknown method call: ${call.method}');
-    }
-  }
-
-  // Handle call state events
-  void _handleCallStateEvent(dynamic event) {
-    if (event is Map) {
-      _handleCallStateChange(event);
-    }
-  }
-
-  // Handle call state changes
-  void _handleCallStateChange(dynamic data) {
+  Future<void> _requestPermissions() async {
     try {
-      final Map<String, dynamic> callData = Map<String, dynamic>.from(data);
-      final phoneNumber = callData['phoneNumber'] as String? ?? '';
-      final stateString = callData['state'] as String? ?? 'idle';
-      final isOutgoing = callData['isOutgoing'] as bool? ?? false;
-      final isConnected = callData['isConnected'] as bool? ?? false;
-      final state = _parseCallState(stateString);
-      final now = DateTime.now();
-
-      // Create or update call record
-      if (_currentCall == null || _currentCall!.phoneNumber != phoneNumber) {
-        // New call
-        _currentCall = CallRecord(
-          phoneNumber: phoneNumber,
-          startTime: now,
-          state: state,
-          isOutgoing: isOutgoing,
-          isConnected: isConnected,
-          contactName: _getContactName(phoneNumber),
-        );
-      } else {
-        // Update existing call
-        final duration = state == CallState.disconnected
-            ? now.difference(_currentCall!.startTime)
-            : null;
-
-        _currentCall = _currentCall!.copyWith(
-          state: state,
-          endTime: state == CallState.disconnected ? now : null,
-          duration: duration,
-          isConnected: isConnected,
-        );
-      }
-
-      log(
-        '📞 Call state changed: ${_currentCall!.phoneNumber} - ${_currentCall!.callType}',
-      );
-      _callStateController.add(_currentCall!);
-
-      // Save call record if disconnected
-      if (state == CallState.disconnected) {
-        _addCallToHistory(_currentCall!);
-        _currentCall = null;
-      }
+      final status = await Permission.phone.request();
+      log('📱 Phone permission status: $status');
     } catch (e) {
-      log('❌ Error handling call state change: $e');
+      log('⚠️ Permission request failed: $e');
     }
   }
 
-  // Handle network status changes
-  void _handleNetworkStatusChange(dynamic data) {
-    if (data is bool) {
-      _isNetworkConnected = data;
-      _networkStatusController.add(_isNetworkConnected);
-      log('🌐 Network status changed: $_isNetworkConnected');
-    }
-  }
-
-  // Parse call state from string
-  CallState _parseCallState(String stateString) {
-    switch (stateString.toLowerCase()) {
-      case 'ringing':
-        return CallState.ringing;
-      case 'offhook':
-        return CallState.offhook;
-      case 'disconnected':
-        return CallState.disconnected;
-      default:
-        return CallState.idle;
-    }
-  }
-
-  // Get contact name (placeholder - you can integrate with contacts)
-  String _getContactName(String phoneNumber) {
-    // You can integrate with flutter_contacts package here
-    final contacts = {
-      '+15551234567': 'Sarah Johnson',
-      '+15559876543': 'John Doe',
-      '+15555555555': 'Emergency Contact',
-    };
-    return contacts[phoneNumber] ?? '';
-  }
-
-  // Make a call and track it
+  // Make a call using URL launcher
   Future<bool> makeCall(String phoneNumber) async {
     try {
       log('📞 Making call to: $phoneNumber');
 
-      // Track outgoing call
-      _currentCall = CallRecord(
-        phoneNumber: phoneNumber,
-        startTime: DateTime.now(),
-        state: CallState.ringing,
-        isOutgoing: true,
-        contactName: _getContactName(phoneNumber),
-      );
+      // Clean phone number (remove any formatting)
+      final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
 
-      _callStateController.add(_currentCall!);
+      // Create URI for phone call
+      final Uri url = Uri(scheme: 'tel', path: cleanNumber);
 
-      // Use URL launcher to make call
-      final Uri url = Uri.parse('tel:$phoneNumber');
-      final launched = await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
+      // Check if can launch
+      if (await canLaunchUrl(url)) {
+        final launched = await launchUrl(
+          url,
+          mode: LaunchMode.externalApplication,
+        );
 
-      if (launched) {
-        // Simulate call state changes for demo
-        _simulateCallStateChanges(phoneNumber);
+        if (launched) {
+          // Add call record to history
+          _addCallRecord(cleanNumber, true);
+          return true;
+        }
       }
 
-      return launched;
+      return false;
     } catch (e) {
       log('❌ Error making call: $e');
       return false;
     }
   }
 
-  // Simulate call state changes for demo purposes
-  void _simulateCallStateChanges(String phoneNumber) {
-    Timer(const Duration(seconds: 2), () {
-      _handleCallStateChange({
-        'phoneNumber': phoneNumber,
-        'state': 'offhook',
-        'isOutgoing': true,
-        'isConnected': true,
-      });
-    });
+  // Add call record when call is made
+  void _addCallRecord(String phoneNumber, bool isOutgoing) {
+    final now = DateTime.now();
+    final record = CallRecord(
+      phoneNumber: phoneNumber,
+      startTime: now,
+      endTime: now.add(const Duration(seconds: 30)), // Demo duration
+      state: CallState.disconnected,
+      isOutgoing: isOutgoing,
+      duration: const Duration(seconds: 30),
+      contactName: _getContactName(phoneNumber),
+    );
 
-    Timer(const Duration(seconds: 10), () {
-      _handleCallStateChange({
-        'phoneNumber': phoneNumber,
-        'state': 'disconnected',
-        'isOutgoing': true,
-        'isConnected': false,
-      });
-    });
+    _addCallToHistory(record);
+  }
+
+  // Get contact name (placeholder - you can integrate with contacts)
+  String _getContactName(String phoneNumber) {
+    final contacts = {
+      '+15551234567': 'Sarah Johnson',
+      '+15559876543': 'John Doe',
+      '+15555555555': 'Emergency Contact',
+      '5551234567': 'Sarah Johnson',
+      '5559876543': 'John Doe',
+      '5555555555': 'Emergency Contact',
+    };
+    return contacts[phoneNumber] ?? '';
   }
 
   // Add call to history
@@ -416,20 +284,6 @@ class CallTrackingService {
       _callHistory = _callHistory.take(100).toList();
     }
     _callHistoryController.add(_callHistory);
-    _saveCallHistory();
-  }
-
-  // Load call history from storage
-  Future<void> _loadCallHistory() async {
-    // In a real app, you'd load from SharedPreferences or SQLite
-    _callHistory = [];
-    _callHistoryController.add(_callHistory);
-  }
-
-  // Save call history to storage
-  Future<void> _saveCallHistory() async {
-    // In a real app, you'd save to SharedPreferences or SQLite
-    log('💾 Saving call history: ${_callHistory.length} records');
   }
 
   // Add demo call history
@@ -481,6 +335,15 @@ class CallTrackingService {
         duration: Duration.zero,
         contactName: 'Emergency Contact',
       ),
+      CallRecord(
+        phoneNumber: '+15551111111',
+        startTime: now.subtract(const Duration(days: 2, hours: 1)),
+        endTime: now.subtract(const Duration(days: 2, hours: 1, minutes: -15)),
+        state: CallState.disconnected,
+        isOutgoing: true,
+        duration: const Duration(minutes: 15),
+        contactName: 'Mom',
+      ),
     ];
 
     _callHistory = demoRecords;
@@ -516,9 +379,7 @@ class CallTrackingService {
 
   // Dispose resources
   void dispose() {
-    _callStateSubscription?.cancel();
     _callStateController.close();
-    _networkStatusController.close();
     _callHistoryController.close();
   }
 }
@@ -555,7 +416,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _currentCall = call;
       });
-      _showCallNotification(call);
     });
 
     _historySubscription = _callService.callHistoryStream.listen((history) {
@@ -568,36 +428,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _callHistory = _callService.callHistory;
     });
-  }
-
-  void _showCallNotification(CallRecord call) {
-    String message;
-    switch (call.state) {
-      case CallState.ringing:
-        message = call.isOutgoing
-            ? 'Calling ${call.displayName}...'
-            : 'Incoming call from ${call.displayName}';
-        break;
-      case CallState.offhook:
-        message = 'Call connected with ${call.displayName}';
-        break;
-      case CallState.disconnected:
-        final duration = call.duration?.inMinutes ?? 0;
-        message = 'Call ended. Duration: ${duration}m';
-        break;
-      default:
-        return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: call.state == CallState.disconnected
-            ? Colors.red
-            : Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   void _openPhoneKeyboard() {
@@ -619,6 +449,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return _callService.getFilteredCalls(selectedFilter);
   }
 
+  // Group calls by date
+  Map<String, List<CallRecord>> get groupedCalls {
+    final Map<String, List<CallRecord>> grouped = {};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    for (final call in filteredCalls) {
+      final callDate = DateTime(
+        call.startTime.year,
+        call.startTime.month,
+        call.startTime.day,
+      );
+      String dateKey;
+
+      if (callDate == today) {
+        dateKey = 'Today';
+      } else if (callDate == yesterday) {
+        dateKey = 'Yesterday';
+      } else {
+        dateKey = 'Earlier';
+      }
+
+      grouped[dateKey] = grouped[dateKey] ?? [];
+      grouped[dateKey]!.add(call);
+    }
+
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -638,104 +498,69 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8,
+          // Filter chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                FilterChipWidget(
+                  label: 'All',
+                  selected: selectedFilter == 'All',
+                  onTap: () => _onFilterTap('All'),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    FilterChipWidget(
-                      label: 'All',
-                      selected: selectedFilter == 'All',
-                      onTap: () => _onFilterTap('All'),
-                    ),
-                    FilterChipWidget(
-                      label: 'Missed',
-                      selected: selectedFilter == 'Missed',
-                      onTap: () => _onFilterTap('Missed'),
-                    ),
-                    FilterChipWidget(
-                      label: 'Outgoing',
-                      selected: selectedFilter == 'Outgoing',
-                      onTap: () => _onFilterTap('Outgoing'),
-                    ),
-                    FilterChipWidget(
-                      label: 'Incoming',
-                      selected: selectedFilter == 'Incoming',
-                      onTap: () => _onFilterTap('Incoming'),
-                    ),
-                  ],
+                FilterChipWidget(
+                  label: 'Missed',
+                  selected: selectedFilter == 'Missed',
+                  onTap: () => _onFilterTap('Missed'),
                 ),
-              ),
-              // Expanded(
-              //   child: CallList(
-              //     callHistory: filteredCalls,
-              //     onCallTap: (phoneNumber) =>
-              //         _callService.makeCall(phoneNumber),
-              //   ),
-              // ),
-            ],
-          ),
-          // Current call overlay
-          if (_currentCall != null && _currentCall!.state != CallState.idle)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
+                FilterChipWidget(
+                  label: 'Outgoing',
+                  selected: selectedFilter == 'Outgoing',
+                  onTap: () => _onFilterTap('Outgoing'),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _currentCall!.icon,
-                      color: _currentCall!.iconColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _currentCall!.displayName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            _currentCall!.callType,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!_callService.isNetworkConnected)
-                      const Icon(
-                        Icons.signal_wifi_off,
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                  ],
+                FilterChipWidget(
+                  label: 'Incoming',
+                  selected: selectedFilter == 'Incoming',
+                  onTap: () => _onFilterTap('Incoming'),
                 ),
-              ),
+              ],
             ),
+          ),
+
+          // Call logs list
+          Expanded(
+            child: filteredCalls.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No calls found',
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      for (final entry in groupedCalls.entries) ...[
+                        SectionTitle(title: entry.key),
+                        for (final call in entry.value)
+                          CallTile(
+                            name: call.displayName,
+                            number: call.phoneNumber,
+                            time: call.formattedTime,
+                            callType: call.callType,
+                            duration: call.durationText,
+                            icon: call.icon,
+                            iconColor: call.iconColor,
+                            onTap: () =>
+                                _callService.makeCall(call.phoneNumber),
+                          ),
+                      ],
+                    ],
+                  ),
+          ),
         ],
       ),
       floatingActionButton: Container(
@@ -858,6 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// Phone keyboard sheet (kept the same as your original)
 class PhoneKeyboardSheet extends StatefulWidget {
   final CallTrackingService callService;
 
@@ -915,7 +741,6 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
         _showDialerError();
       }
     } else {
-      log('⚠️ phoneNumber is empty, no action taken');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a phone number')),
       );
@@ -1026,9 +851,13 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
 
                 IconButton(
                   onPressed: _onBackspace,
-                  icon: SvgPicture.asset('assets/icons/close.svg'),
+                  icon: const Icon(
+                    Icons.backspace_outlined,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
-                SizedBox(width: 20),
+                const SizedBox(width: 20),
               ],
             ),
           ),
@@ -1068,6 +897,7 @@ class KeypadButton extends StatelessWidget {
   }
 }
 
+// Helper widgets (same as your original)
 class Page1 extends StatelessWidget {
   const Page1({Key? key}) : super(key: key);
 
@@ -1175,113 +1005,6 @@ class FilterChipWidget extends StatelessWidget {
   }
 }
 
-class CallList extends StatelessWidget {
-  const CallList({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SectionTitle(title: "Today"),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Outgoing",
-          duration: "25 min",
-          icon: Icons.call_made,
-          iconColor: Colors.green,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Incoming",
-          duration: "8 min",
-          icon: Icons.call_received,
-          iconColor: Colors.blue,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Missed call",
-          icon: Icons.call_missed,
-          iconColor: Colors.red,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        const SectionTitle(title: "Yesterday"),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Not picked",
-          icon: Icons.access_time,
-          iconColor: Colors.orange,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Declined",
-          icon: Icons.call_end,
-          iconColor: Colors.red,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Outgoing",
-          duration: "25 min",
-          icon: Icons.call_made,
-          iconColor: Colors.green,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        const SectionTitle(title: "Earlier"),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "July 14, 8:16 PM",
-          callType: "Not picked",
-          icon: Icons.access_time,
-          iconColor: Colors.orange,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "July 14, 8:16 PM",
-          callType: "Missed call",
-          icon: Icons.call_missed,
-          iconColor: Colors.red,
-          onTap: () {
-            // Handle call tile tap
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class SectionTitle extends StatelessWidget {
   final String title;
   const SectionTitle({super.key, required this.title});
@@ -1354,11 +1077,14 @@ class CallTile extends StatelessWidget {
               style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
             Text(
-              duration != null ? "$callType • $duration" : callType,
+              duration != null && duration!.isNotEmpty
+                  ? "$callType • $duration"
+                  : callType,
               style: TextStyle(
                 color:
                     callType.toLowerCase().contains("missed") ||
-                        callType.toLowerCase().contains("declined")
+                        callType.toLowerCase().contains("declined") ||
+                        callType.toLowerCase().contains("not picked")
                     ? Colors.redAccent
                     : Colors.white70,
                 fontSize: 12,
@@ -1366,13 +1092,28 @@ class CallTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: Text(
-          time,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              time,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.phone, color: Colors.white, size: 16),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
-/// error notes for api's

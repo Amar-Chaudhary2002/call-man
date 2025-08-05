@@ -146,9 +146,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           const SizedBox(height: 8),
                           LinearProgressIndicator(
                             value: (index + 1) / pages.length,
-                            backgroundColor: Colors.white24,
+                            backgroundColor: Color(0xFFE5E7EB),
                             valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                              Color(0xFF6366F1),
                             ),
                           ),
                           const Spacer(),

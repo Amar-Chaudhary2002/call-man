@@ -1,3 +1,4 @@
+import 'package:call_app/presentation/dashboard/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -57,7 +58,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Registration Successful!"), backgroundColor: Colors.green),
           );
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => SignInScreen()));
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => HomeScreen()));
         }
       },
       child: Scaffold(
