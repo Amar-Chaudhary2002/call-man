@@ -189,23 +189,25 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
+                              // Inside the onPressed method for "Login"
                               onPressed: () {
                                 final email = emailController.text.trim();
                                 final password = passController.text.trim();
+
                                 if (email.isEmpty || password.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Email and password required'),
-                                    ),
+                                    const SnackBar(content: Text('Email and password required')),
                                   );
                                   return;
                                 }
-                                // Call AuthCubit
+
+                                print('Attempting login with email: $email');
                                 context.read<AuthCubit>().loginWithEmail(
                                   email: email,
                                   password: password,
                                 );
                               },
+
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 padding: const EdgeInsets.symmetric(vertical: 15),

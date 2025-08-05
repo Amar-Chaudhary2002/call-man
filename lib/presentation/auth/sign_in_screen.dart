@@ -44,12 +44,13 @@ class _SignInScreenState extends State<SignInScreen> {
           }
 
           if (state is OtpSent) {
-            // Proceed to OTP screen
+            // Navigate to OTP screen once OTP is sent
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => OtpScreen(
-                  phoneNumber: '$_countryCode ${phoneController.text.trim()}',
+                  verificationId: state.verificationId,
+                  phoneNumber: state.phoneNumber,
                 ),
               ),
             );
@@ -157,7 +158,8 @@ class _SignInScreenState extends State<SignInScreen> {
                                 if (phone.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content: Text('Phone number required')),
+                                      content: Text('Phone number required'),
+                                    ),
                                   );
                                   return;
                                 }
@@ -251,7 +253,8 @@ class _SignInScreenState extends State<SignInScreen> {
             ),
           ),
         ),
-      ),
+      )
+      ,
     );
   }
 
