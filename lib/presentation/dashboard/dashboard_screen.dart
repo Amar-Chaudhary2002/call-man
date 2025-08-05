@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:android_intent_plus/flag.dart';
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:call_log/call_log.dart';
+import 'package:flutter/services.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io' show Platform;
 
 // Call state enum
 enum CallState {
@@ -163,7 +169,6 @@ class CallRecord {
   }
 }
 
-// Simplified Call tracking service without native channels
 class CallTrackingService {
   static CallTrackingService? _instance;
   static CallTrackingService get instance =>
@@ -171,76 +176,161 @@ class CallTrackingService {
 
   CallTrackingService._();
 
-  // Stream controllers
   final StreamController<CallRecord> _callStateController =
       StreamController<CallRecord>.broadcast();
   final StreamController<List<CallRecord>> _callHistoryController =
       StreamController<List<CallRecord>>.broadcast();
 
-  // Current call tracking
-  CallRecord? _currentCall;
   List<CallRecord> _callHistory = [];
 
-  // Getters
-  Stream<CallRecord> get callStateStream => _callStateController.stream;
   Stream<List<CallRecord>> get callHistoryStream =>
       _callHistoryController.stream;
-  CallRecord? get currentCall => _currentCall;
   List<CallRecord> get callHistory => List.unmodifiable(_callHistory);
 
-  // Initialize the service
   Future<bool> initialize() async {
     try {
-      // Request phone permission
       await _requestPermissions();
-
-      // Load demo call history
-      _addDemoCallHistory();
-
-      log('✅ Call tracking service initialized in demo mode');
+      await _loadCallLogs();
+      log('✅ Call tracking service initialized with real call logs');
       return true;
     } catch (e) {
       log('❌ Failed to initialize call tracking service: $e');
-      _addDemoCallHistory(); // Add demo data as fallback
-      return true;
+      return false;
     }
   }
 
-  // Request required permissions
+  List<CallRecord> getFilteredCalls(String filter) {
+    switch (filter.toLowerCase()) {
+      case 'missed':
+        return _callHistory.where((call) {
+          return call.callType.toLowerCase().contains('missed') ||
+              call.callType.toLowerCase().contains('not picked');
+        }).toList();
+      case 'outgoing':
+        return _callHistory.where((call) => call.isOutgoing).toList();
+      case 'incoming':
+        return _callHistory.where((call) {
+          return !call.isOutgoing &&
+              call.duration != null &&
+              call.duration!.inSeconds > 0;
+        }).toList();
+      default: // 'All' or any other value
+        return List.from(_callHistory);
+    }
+  }
+
   Future<void> _requestPermissions() async {
     try {
       final status = await Permission.phone.request();
+      if (!status.isGranted) {
+        await Permission.phone.request();
+      }
       log('📱 Phone permission status: $status');
     } catch (e) {
       log('⚠️ Permission request failed: $e');
     }
   }
 
-  // Make a call using URL launcher
+  Future<void> _loadCallLogs() async {
+    try {
+      final Iterable<CallLogEntry> entries = await CallLog.get();
+      final List<CallRecord> records = [];
+
+      for (var entry in entries) {
+        records.add(_mapCallLogToRecord(entry));
+      }
+
+      _callHistory = records;
+      _callHistoryController.add(_callHistory);
+    } catch (e) {
+      log('❌ Error loading call logs: $e');
+      _callHistory = [];
+      _callHistoryController.add(_callHistory);
+    }
+  }
+
+  CallRecord _mapCallLogToRecord(CallLogEntry entry) {
+    return CallRecord(
+      phoneNumber: entry.number ?? 'Unknown',
+      startTime: DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0),
+      endTime: entry.duration == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              (entry.timestamp ?? 0) + (entry.duration ?? 0) * 1000,
+            ),
+      state: _getCallStateFromEntry(entry),
+      isOutgoing: entry.callType == CallType.outgoing,
+      duration: entry.duration == null
+          ? null
+          : Duration(seconds: entry.duration!),
+      contactName: entry.name ?? '',
+    );
+  }
+
+  CallState _getCallStateFromEntry(CallLogEntry entry) {
+    if (entry.callType == CallType.missed) {
+      return CallState.disconnected;
+    } else if (entry.duration != null && entry.duration! > 0) {
+      return CallState.disconnected;
+    } else if (entry.callType == CallType.outgoing) {
+      return CallState.disconnected;
+    }
+    return CallState.disconnected;
+  }
+
   Future<bool> makeCall(String phoneNumber) async {
     try {
-      log('📞 Making call to: $phoneNumber');
-
-      // Clean phone number (remove any formatting)
+      // Clean the phone number (remove all non-digit characters except '+')
       final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
 
-      // Create URI for phone call
-      final Uri url = Uri(scheme: 'tel', path: cleanNumber);
+      if (cleanNumber.isEmpty) {
+        throw Exception('Invalid phone number');
+      }
 
-      // Check if can launch
+      // First try standard URL launch
+      final url = Uri(scheme: 'tel', path: cleanNumber);
+
+      // Check if device can handle tel: URIs
       if (await canLaunchUrl(url)) {
-        final launched = await launchUrl(
-          url,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (launched) {
-          // Add call record to history
-          _addCallRecord(cleanNumber, true);
-          return true;
+        try {
+          final launched = await launchUrl(
+            url,
+            mode: LaunchMode.externalApplication,
+          );
+          if (launched) return true;
+        } catch (e) {
+          log('Standard URL launch failed: $e');
         }
       }
 
+      // Android-specific fallback
+      if (Platform.isAndroid) {
+        try {
+          // Method 1: Use Android Intent directly
+          final intent = AndroidIntent(
+            action: 'android.intent.action.DIAL',
+            data: 'tel:$cleanNumber',
+            flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+          );
+          await intent.launch();
+          return true;
+        } catch (e) {
+          log('Android Intent failed: $e');
+
+          // Method 2: Try native platform channel as last resort
+          try {
+            const platform = MethodChannel('phone_dialer');
+            await platform.invokeMethod('dialPhoneNumber', {
+              'number': cleanNumber,
+            });
+            return true;
+          } catch (e) {
+            log('Native channel failed: $e');
+          }
+        }
+      }
+
+      // If all else fails
       return false;
     } catch (e) {
       log('❌ Error making call: $e');
@@ -248,136 +338,6 @@ class CallTrackingService {
     }
   }
 
-  // Add call record when call is made
-  void _addCallRecord(String phoneNumber, bool isOutgoing) {
-    final now = DateTime.now();
-    final record = CallRecord(
-      phoneNumber: phoneNumber,
-      startTime: now,
-      endTime: now.add(const Duration(seconds: 30)), // Demo duration
-      state: CallState.disconnected,
-      isOutgoing: isOutgoing,
-      duration: const Duration(seconds: 30),
-      contactName: _getContactName(phoneNumber),
-    );
-
-    _addCallToHistory(record);
-  }
-
-  // Get contact name (placeholder - you can integrate with contacts)
-  String _getContactName(String phoneNumber) {
-    final contacts = {
-      '+15551234567': 'Sarah Johnson',
-      '+15559876543': 'John Doe',
-      '+15555555555': 'Emergency Contact',
-      '5551234567': 'Sarah Johnson',
-      '5559876543': 'John Doe',
-      '5555555555': 'Emergency Contact',
-    };
-    return contacts[phoneNumber] ?? '';
-  }
-
-  // Add call to history
-  void _addCallToHistory(CallRecord record) {
-    _callHistory.insert(0, record);
-    if (_callHistory.length > 100) {
-      _callHistory = _callHistory.take(100).toList();
-    }
-    _callHistoryController.add(_callHistory);
-  }
-
-  // Add demo call history
-  void _addDemoCallHistory() {
-    final now = DateTime.now();
-    final demoRecords = [
-      CallRecord(
-        phoneNumber: '+15551234567',
-        startTime: now.subtract(const Duration(hours: 1)),
-        endTime: now.subtract(const Duration(hours: 1, minutes: -25)),
-        state: CallState.disconnected,
-        isOutgoing: true,
-        duration: const Duration(minutes: 25),
-        contactName: 'Sarah Johnson',
-      ),
-      CallRecord(
-        phoneNumber: '+15551234567',
-        startTime: now.subtract(const Duration(hours: 2)),
-        endTime: now.subtract(const Duration(hours: 2, minutes: -8)),
-        state: CallState.disconnected,
-        isOutgoing: false,
-        duration: const Duration(minutes: 8),
-        contactName: 'Sarah Johnson',
-      ),
-      CallRecord(
-        phoneNumber: '+15551234567',
-        startTime: now.subtract(const Duration(hours: 3)),
-        endTime: now.subtract(const Duration(hours: 3)),
-        state: CallState.disconnected,
-        isOutgoing: false,
-        duration: Duration.zero,
-        contactName: 'Sarah Johnson',
-      ),
-      CallRecord(
-        phoneNumber: '+15559876543',
-        startTime: now.subtract(const Duration(days: 1, hours: 2)),
-        endTime: now.subtract(const Duration(days: 1, hours: 2)),
-        state: CallState.disconnected,
-        isOutgoing: false,
-        duration: Duration.zero,
-        contactName: 'John Doe',
-      ),
-      CallRecord(
-        phoneNumber: '+15555555555',
-        startTime: now.subtract(const Duration(days: 1, hours: 4)),
-        endTime: now.subtract(const Duration(days: 1, hours: 4)),
-        state: CallState.disconnected,
-        isOutgoing: true,
-        duration: Duration.zero,
-        contactName: 'Emergency Contact',
-      ),
-      CallRecord(
-        phoneNumber: '+15551111111',
-        startTime: now.subtract(const Duration(days: 2, hours: 1)),
-        endTime: now.subtract(const Duration(days: 2, hours: 1, minutes: -15)),
-        state: CallState.disconnected,
-        isOutgoing: true,
-        duration: const Duration(minutes: 15),
-        contactName: 'Mom',
-      ),
-    ];
-
-    _callHistory = demoRecords;
-    _callHistoryController.add(_callHistory);
-  }
-
-  // Filter calls by type
-  List<CallRecord> getFilteredCalls(String filter) {
-    switch (filter.toLowerCase()) {
-      case 'missed':
-        return _callHistory
-            .where(
-              (call) =>
-                  call.callType.toLowerCase().contains('missed') ||
-                  call.callType.toLowerCase().contains('not picked'),
-            )
-            .toList();
-      case 'outgoing':
-        return _callHistory.where((call) => call.isOutgoing).toList();
-      case 'incoming':
-        return _callHistory
-            .where(
-              (call) =>
-                  !call.isOutgoing &&
-                  call.duration != null &&
-                  call.duration!.inSeconds > 0,
-            )
-            .toList();
-      default:
-        return _callHistory;
-    }
-  }
-
-  // Dispose resources
   void dispose() {
     _callStateController.close();
     _callHistoryController.close();
@@ -395,10 +355,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int pageIndex = 0;
   String selectedFilter = 'All';
   final CallTrackingService _callService = CallTrackingService.instance;
-  StreamSubscription<CallRecord>? _callSubscription;
   StreamSubscription<List<CallRecord>>? _historySubscription;
 
-  CallRecord? _currentCall;
   List<CallRecord> _callHistory = [];
 
   final pages = [const Page1(), const Page2(), const Page3(), const Page4()];
@@ -407,16 +365,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeCallTracking();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestPermissions();
+    });
+  }
+
+  Future<void> _requestPermissions() async {
+    final status = await Permission.phone.request();
+    if (status.isGranted) {
+      await _callService.initialize();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone permissions are required')),
+      );
+    }
   }
 
   Future<void> _initializeCallTracking() async {
     await _callService.initialize();
-
-    _callSubscription = _callService.callStateStream.listen((call) {
-      setState(() {
-        _currentCall = call;
-      });
-    });
 
     _historySubscription = _callService.callHistoryStream.listen((history) {
       setState(() {
@@ -449,7 +415,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _callService.getFilteredCalls(selectedFilter);
   }
 
-  // Group calls by date
   Map<String, List<CallRecord>> get groupedCalls {
     final Map<String, List<CallRecord>> grouped = {};
     final now = DateTime.now();
@@ -677,13 +642,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _callSubscription?.cancel();
     _historySubscription?.cancel();
+    _callService.dispose();
     super.dispose();
   }
 }
 
-// Phone keyboard sheet (kept the same as your original)
 class PhoneKeyboardSheet extends StatefulWidget {
   final CallTrackingService callService;
 
@@ -783,7 +747,7 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
             child: Text(
-              phoneNumber.isEmpty ? '+1 (555) 123' : phoneNumber,
+              phoneNumber.isEmpty ? 'Enter phone number' : phoneNumber,
               style: TextStyle(
                 color: phoneNumber.isEmpty
                     ? Colors.white.withOpacity(0.7)
@@ -883,21 +847,28 @@ class KeypadButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextButton(
       onPressed: onTap,
-      child: Center(
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.w300,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            number,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.w300,
+            ),
           ),
-        ),
+          if (letters.isNotEmpty)
+            Text(
+              letters,
+              style: const TextStyle(color: Colors.white54, fontSize: 10),
+            ),
+        ],
       ),
     );
   }
 }
 
-// Helper widgets (same as your original)
 class Page1 extends StatelessWidget {
   const Page1({Key? key}) : super(key: key);
 
@@ -905,7 +876,7 @@ class Page1 extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        "Page Number 1",
+        "Call Logs",
         style: TextStyle(
           color: Colors.green[900],
           fontSize: 45,
@@ -923,7 +894,7 @@ class Page2 extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        "Page Number 2",
+        "Tasks",
         style: TextStyle(
           color: Colors.green[900],
           fontSize: 45,
@@ -941,7 +912,7 @@ class Page3 extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        "Page Number 3",
+        "Calendar",
         style: TextStyle(
           color: Colors.green[900],
           fontSize: 45,
@@ -959,7 +930,7 @@ class Page4 extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        "Page Number 4",
+        "Leads",
         style: TextStyle(
           color: Colors.green[900],
           fontSize: 45,
