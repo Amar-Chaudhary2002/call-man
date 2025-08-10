@@ -324,6 +324,7 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
                     // Handle notifications
                   },
                 ),
+
                 Positioned(
                   right: 10,
                   top: 10,
@@ -337,6 +338,12 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
                   ),
                 ),
               ],
+            ),
+            IconButton(
+              onPressed: () {
+                context.read<AuthCubit>().signOut();
+              },
+              icon: Icon(Icons.logout,color: Colors.white,),
             ),
             IconButton(
               icon: const Icon(Icons.filter_list, color: Colors.white),

@@ -15,6 +15,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
+import '../dashboard/home.dart';
 
 class LoginWithPasswordScreen extends StatefulWidget {
   const LoginWithPasswordScreen({super.key});
@@ -99,7 +100,7 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const LoginSuccessScreen(),
+                    builder: (context) => const DashboardScreen(),
                   ),
                   (route) => false,
                 );

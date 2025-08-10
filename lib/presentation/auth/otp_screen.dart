@@ -1,8 +1,6 @@
-import 'package:call_app/core/constant/app_color.dart';
+// lib/presentation/auth/otp_screen.dart  (kept in sync with your new UI & safe loader)
 import 'package:call_app/core/image_constant.dart';
-import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:call_app/presentation/dashboard/home.dart';
-import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,38 +26,55 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final TextEditingController _otpController = TextEditingController();
+  bool _isDialogShowing = false;
+
+  void _showLoader() {
+    if (!_isDialogShowing && mounted) {
+      _isDialogShowing = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+  }
+
+  void _hideLoader() {
+    if (_isDialogShowing && mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      _isDialogShowing = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthLoading) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => const Center(child: CircularProgressIndicator()),
-          );
+          _showLoader();
         } else {
-          // Remove loader if present
-          if (Navigator.canPop(context)) Navigator.pop(context);
+          _hideLoader();
         }
 
         if (state is AuthError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
         }
 
         if (state is AuthSuccess) {
+          if (!mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => DashboardScreen()),
-            (route) => false,
+            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                (route) => false,
           );
         }
       },
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
             begin: Alignment.centerLeft,
@@ -69,7 +84,6 @@ class _OtpScreenState extends State<OtpScreen> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           resizeToAvoidBottomInset: false,
-
           body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -99,11 +113,9 @@ class _OtpScreenState extends State<OtpScreen> {
                 Pinput(
                   controller: _otpController,
                   length: 6,
-
                   defaultPinTheme: PinTheme(
                     width: 56.w,
                     height: 56.h,
-
                     textStyle: const TextStyle(
                       fontSize: 20,
                       color: Colors.white,
@@ -111,26 +123,11 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.transparent,
-                      // gradient: const LinearGradient(
-                      //   colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                      //   begin: Alignment.centerLeft,
-                      //   end: Alignment.centerRight,
-                      // ),
-                      border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
+                      border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          offset: Offset(0, 10),
-                          blurRadius: 15,
-                          spreadRadius: 0,
-                        ),
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          offset: Offset(0, 4),
-                          blurRadius: 6,
-                          spreadRadius: 0,
-                        ),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x1A000000), offset: Offset(0, 10), blurRadius: 15, spreadRadius: 0),
+                        BoxShadow(color: Color(0x1A000000), offset: Offset(0, 4), blurRadius: 6, spreadRadius: 0),
                       ],
                     ),
                   ),
@@ -156,8 +153,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 const SizedBox(height: 4),
                 TextButton(
                   onPressed: () {
-                    // You can call resend here if needed
-                    context.read<AuthCubit>().sendOtp(widget.phoneNumber);
+                    context.read<AuthCubit>().sendOtp(widget.phoneNumber, forceResend: true);
                   },
                   child: Text(
                     "Resend OTP",
@@ -178,25 +174,17 @@ class _OtpScreenState extends State<OtpScreen> {
                       final otp = _otpController.text.trim();
                       if (otp.length != 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please enter a valid 6-digit OTP'),
-                          ),
+                          const SnackBar(content: Text('Please enter a valid 6-digit OTP')),
                         );
                         return;
                       }
-                      context.read<AuthCubit>().verifyOtp(
-                        otp,
-                        widget.verificationId,
-                      );
+                      context.read<AuthCubit>().verifyOtp(otp, widget.verificationId);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(9),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                       elevation: 0,
-                      // shadowColor: Colors.black.withOpacity(0.3),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -204,16 +192,13 @@ class _OtpScreenState extends State<OtpScreen> {
                         Text(
                           "Verify & Continue",
                           style: GoogleFonts.roboto(
-                            color: Color(0xFF0F172A),
+                            color: const Color(0xFF0F172A),
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         SizedBox(width: 5.w),
-                        Icon(
-                          CupertinoIcons.arrow_right,
-                          color: Color(0xFF0F172A),
-                        ),
+                        const Icon(CupertinoIcons.arrow_right, color: Color(0xFF0F172A)),
                       ],
                     ),
                   ),
