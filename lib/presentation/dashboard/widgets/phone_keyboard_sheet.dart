@@ -1,11 +1,14 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:call_app/core/constant/app_color.dart';
+import 'button.dart';
+import 'call_tracking.dart';
 
 class PhoneKeyboardSheet extends StatefulWidget {
-  const PhoneKeyboardSheet({super.key});
+  final CallTrackingService callService;
+
+  const PhoneKeyboardSheet({super.key, required this.callService});
 
   @override
   State<PhoneKeyboardSheet> createState() => _PhoneKeyboardSheetState();
@@ -13,6 +16,8 @@ class PhoneKeyboardSheet extends StatefulWidget {
 
 class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
   String phoneNumber = '';
+  bool _isDialing = false;
+
   final List<Map<String, String>> keypadButtons = [
     {'number': '1', 'letters': ''},
     {'number': '2', 'letters': 'ABC'},
@@ -28,13 +33,21 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
     {'number': '#', 'letters': ''},
   ];
 
-  void _onKeypadTap(String value) => setState(() => phoneNumber += value);
+  void _onKeypadTap(String value) {
+    setState(() {
+      phoneNumber += value;
+    });
+
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
 
   void _onBackspace() {
     if (phoneNumber.isNotEmpty) {
-      setState(
-        () => phoneNumber = phoneNumber.substring(0, phoneNumber.length - 1),
-      );
+      setState(() {
+        phoneNumber = phoneNumber.substring(0, phoneNumber.length - 1);
+      });
+      HapticFeedback.selectionClick();
     }
   }
 
@@ -46,30 +59,44 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
       return;
     }
 
-    final Uri url = Uri.parse('tel:$phoneNumber');
+    setState(() {
+      _isDialing = true;
+    });
+
+    log('📞 Attempting to call: $phoneNumber');
+
     try {
-      final launched = await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
-      if (launched) {
+      final success = await widget.callService.makeCall(phoneNumber);
+
+      if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Calling $phoneNumber...')));
-      } else {
-        _showDialerError();
+
+        if (success) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Calling $phoneNumber...')));
+        } else {
+          _showDialerError();
+        }
       }
     } catch (e) {
-      _showDialerError();
+      if (mounted) {
+        Navigator.pop(context);
+        _showDialerError();
+      }
+    } finally {
+      setState(() {
+        _isDialing = false;
+      });
     }
   }
 
   void _showDialerError() {
-    Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Could not launch phone dialer.'),
+        content: const Text(
+          'Could not launch phone dialer. Please check if you have a phone app installed.',
+        ),
         action: SnackBarAction(
           label: 'Copy Number',
           onPressed: () {
@@ -88,18 +115,19 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
-        color: AppColors.primaryColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
       ),
       child: Column(
         children: [
+          // Phone Number Display
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
             child: Text(
-              phoneNumber.isEmpty ? '+1 (555) 123' : phoneNumber,
+              phoneNumber.isEmpty ? 'Enter phone number' : phoneNumber,
               style: TextStyle(
                 color: phoneNumber.isEmpty
                     ? Colors.white.withOpacity(0.7)
@@ -111,6 +139,8 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
               textAlign: TextAlign.center,
             ),
           ),
+
+          // Keypad
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -118,8 +148,8 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
-                  childAspectRatio: 1.0,
-                  crossAxisSpacing: 40,
+                  childAspectRatio: 1,
+                  crossAxisSpacing: 35,
                   mainAxisSpacing: 9,
                 ),
                 itemCount: keypadButtons.length,
@@ -127,76 +157,62 @@ class _PhoneKeyboardSheetState extends State<PhoneKeyboardSheet> {
                   final button = keypadButtons[index];
                   return KeypadButton(
                     number: button['number']!,
-                    letters: button['letters']!,
+                    // letters: button['letters']!,
                     onTap: () => _onKeypadTap(button['number']!),
                   );
                 },
               ),
             ),
           ),
+
+          // Action Buttons
           Padding(
             padding: const EdgeInsets.only(bottom: 30, left: 40, right: 40),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Empty space for balance
                 const SizedBox(width: 70),
+                // Call Button
                 Expanded(
                   child: IconButton(
-                    onPressed: _onCall,
+                    onPressed: _isDialing ? null : _onCall,
                     icon: Container(
                       width: 70,
                       height: 70,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF252424),
+                      decoration: BoxDecoration(
+                        color: _isDialing
+                            ? Colors.grey
+                            : const Color(0xFF32CD32),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.phone,
-                        color: Colors.white,
-                        size: 30,
-                      ),
+                      child: _isDialing
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            )
+                          : const Icon(
+                              Icons.phone,
+                              color: Colors.white,
+                              size: 30,
+                            ),
                     ),
                   ),
                 ),
+
                 IconButton(
                   onPressed: _onBackspace,
-                  icon: SvgPicture.asset('assets/icons/close.svg'),
+                  icon: const Icon(
+                    Icons.backspace_outlined,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 20),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class KeypadButton extends StatelessWidget {
-  final String number;
-  final String letters;
-  final VoidCallback onTap;
-
-  const KeypadButton({
-    super.key,
-    required this.number,
-    required this.letters,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onTap,
-      child: Center(
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:developer';
-
+import 'package:call_app/presentation/dashboard/call_features/call_end_screen.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,7 +28,6 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
@@ -36,11 +36,12 @@ class MyApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (context, child) {
         return MaterialApp(
-          title: 'CallGuard',
+          title: 'CallMan',
           theme: appTheme,
           initialRoute: '/',
           routes: AppRoutes.routes,
           debugShowCheckedModeBanner: false,
+          // home: DashboardScreen(),
         );
       },
     );

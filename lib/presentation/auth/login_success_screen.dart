@@ -1,6 +1,6 @@
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/core/image_constant.dart';
-import 'package:call_app/presentation/dashboard/dashboard_screen.dart';
+import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -68,7 +68,7 @@ class LoginSuccessScreen extends StatelessWidget {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const HomeScreen(),
+                              builder: (_) => const RecentCallScreen(),
                             ),
                           );
                         },

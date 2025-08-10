@@ -1,57 +1,7 @@
 import 'package:flutter/material.dart';
-
-class CallList extends StatelessWidget {
-  const CallList({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SectionTitle(title: "Today"),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Outgoing",
-          duration: "25 min",
-          icon: Icons.call_made,
-          iconColor: Colors.green,
-        ),
-        CallTile(
-          name: "Sarah Johnson",
-          number: "+1 (555) 123-4567",
-          time: "8:16 PM",
-          callType: "Incoming",
-          duration: "8 min",
-          icon: Icons.call_received,
-          iconColor: Colors.blue,
-        ),
-        // More call tiles...
-      ],
-    );
-  }
-}
-
-class SectionTitle extends StatelessWidget {
-  final String title;
-  const SectionTitle({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-    );
-  }
-}
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CallTile extends StatelessWidget {
   final String name;
@@ -59,8 +9,9 @@ class CallTile extends StatelessWidget {
   final String time;
   final String callType;
   final String? duration;
-  final IconData icon;
+  final String svgAsset;
   final Color iconColor;
+  final Color backgroundColor;
   final VoidCallback? onTap;
 
   const CallTile({
@@ -70,90 +21,113 @@ class CallTile extends StatelessWidget {
     required this.time,
     required this.callType,
     this.duration,
-    required this.icon,
+    required this.svgAsset,
     required this.iconColor,
+    required this.backgroundColor,
     this.onTap,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF25316D),
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Colors.white12),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.2),
-          child: Icon(icon, color: iconColor),
-        ),
-        title: Text(
-          name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              number,
-              style: const TextStyle(color: Colors.white60, fontSize: 12),
-            ),
-            Text(
-              duration != null ? "$callType • $duration" : callType,
-              style: TextStyle(
-                color:
-                    callType.toLowerCase().contains("missed") ||
-                        callType.toLowerCase().contains("declined")
-                    ? Colors.redAccent
-                    : Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        trailing: Text(
-          time,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-      ),
-    );
+  Color _getCallTypeTextColor(String type) {
+    final lowerType = type.toLowerCase();
+    if (lowerType.contains("missed") ||
+        lowerType.contains("declined") ||
+        lowerType.contains("not picked")) {
+      return Color(0xFFF56E0B);
+    } else if (lowerType.contains("incoming")) {
+      return Color(0xFF5498F7);
+    } else if (lowerType.contains("outgoing")) {
+      return Color(0xFF10B981);
+    }
+    return Colors.white70;
   }
-}
-
-class FilterChipWidget extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const FilterChipWidget({
-    super.key,
-    required this.label,
-    this.selected = false,
-    this.onTap,
-  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          border: Border.all(color: Colors.white),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12.sp),
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1.w),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.black : Colors.white,
-            fontSize: 12,
+        margin: EdgeInsets.only(bottom: 14.h),
+        child: ListTile(
+          contentPadding: EdgeInsets.only(left: 12, right: 5),
+          leading: CircleAvatar(
+            backgroundColor: backgroundColor,
+            radius: 20,
+            child: SvgPicture.asset(
+              svgAsset,
+              color: iconColor,
+              width: 20,
+              height: 20,
+            ),
+          ),
+          title: Text(
+            name,
+            style: GoogleFonts.roboto(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 14.sp,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            number,
+            style: GoogleFonts.poppins(
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w400,
+              fontSize: 12.sp,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    duration != null && duration!.isNotEmpty
+                        ? "$callType • $duration"
+                        : callType,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: _getCallTypeTextColor(callType),
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(width: 5.w),
+              SizedBox(
+                width: 24.w,
+                height: 24.h,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(minHeight: 25, minWidth: 25),
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: Color(0xFF9CA3AF),
+                    size: 18.sp,
+                  ),
+                  onPressed: () {
+                    // TODO: Add your menu action
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
