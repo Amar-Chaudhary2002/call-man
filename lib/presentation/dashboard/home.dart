@@ -8,7 +8,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import 'features/calender_screen.dart';
 import 'features/call_logs_screen.dart';
 import 'features/lead_screen.dart';
@@ -23,7 +22,6 @@ enum CallState { idle, ringing, offhook, disconnected }
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
-
   @override
   State<DashboardScreen> createState() => _HomeScreenState();
 }

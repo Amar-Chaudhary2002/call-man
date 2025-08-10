@@ -38,10 +38,10 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'CallMan',
           theme: appTheme,
-          initialRoute: '/',
-          routes: AppRoutes.routes,
+          // initialRoute: '/',
+          // routes: AppRoutes.routes,
           debugShowCheckedModeBanner: false,
-          // home: CallInteractionScreen(),
+          home: CallInteractionScreen(),
         );
       },
     );
