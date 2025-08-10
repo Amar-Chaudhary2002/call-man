@@ -7,6 +7,7 @@ import 'package:call_app/core/image_constant.dart';
 import 'package:call_app/presentation/auth/forget_password.dart';
 import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -99,7 +100,7 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const LoginSuccessScreen(),
+                    builder: (context) => const DashboardScreen(),
                   ),
                   (route) => false,
                 );

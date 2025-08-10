@@ -26,55 +26,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        // appBar: PreferredSize(
-        //   preferredSize: Size.fromHeight(70.h),
-        //   child: Container(
-        //     decoration: BoxDecoration(
-        //       color: Color(0xFF1E293B),
-        //       border: Border(
-        //         bottom: BorderSide(color: Color(0xFF475569), width: 1),
-        //       ),
-        //     ),
-        //     child: SafeArea(
-        //       child: Padding(
-        //         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        //         child: Row(
-        //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //           children: [
-        //             Row(
-        //               children: [
-        //                 Icon(Icons.close, color: Colors.red, size: 20.sp),
-        //                 SizedBox(width: 8.w),
-        //                 Column(
-        //                   crossAxisAlignment: CrossAxisAlignment.start,
-        //                   mainAxisAlignment: MainAxisAlignment.center,
-        //                   children: [
-        //                     Text(
-        //                       'Call Ended',
-        //                       style: GoogleFonts.poppins(
-        //                         color: Colors.red,
-        //                         fontWeight: FontWeight.w600,
-        //                         fontSize: 14.sp,
-        //                       ),
-        //                     ),
-        //                     Text(
-        //                       '12:04-2:48 PM',
-        //                       style: GoogleFonts.poppins(
-        //                         color: Colors.grey[400],
-        //                         fontSize: 12.sp,
-        //                       ),
-        //                     ),
-        //                   ],
-        //                 ),
-        //               ],
-        //             ),
-        //             Icon(Icons.close, color: Colors.red, size: 20.sp),
-        //           ],
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
+
         body: SingleChildScrollView(
           padding: EdgeInsets.all(16.w),
           child: Container(

@@ -3,7 +3,7 @@ import 'package:call_app/presentation/auth/login_with_password_screen.dart';
 import 'package:call_app/presentation/auth/otp_screen.dart';
 import 'package:call_app/presentation/auth/sign_in_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
-import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:call_app/presentation/onboarding/block_spam_screen.dart';
 import 'package:call_app/presentation/onboarding/custom_dialer_screen.dart';
 import 'package:call_app/presentation/onboarding/smart_log_screen.dart';
@@ -32,6 +32,6 @@ class AppRoutes {
     otp: (_) => OtpScreen(phoneNumber: '', verificationId: ''),
     loginSuccess: (_) => const LoginSuccessScreen(),
     loginWithPassword: (_) => const LoginWithPasswordScreen(),
-    home: (_) => const RecentCallScreen(),
+    home: (_) => const DashboardScreen(),
   };
 }

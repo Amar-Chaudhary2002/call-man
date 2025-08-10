@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/core/constant/app_color.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:call_app/presentation/dashboard/widgets/section_tile.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -30,10 +31,8 @@ enum CallState {
 }
 
 // Call data model
-
 class RecentCallScreen extends StatefulWidget {
   const RecentCallScreen({super.key});
-
   @override
   State<RecentCallScreen> createState() => _RecentCallScreenState();
 }
@@ -47,9 +46,7 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
   List<CallRecord> _callHistory = [];
   bool _isLoading = false;
   bool _permissionsGranted = false;
-
   final pages = [const Page1(), const Page2(), const Page3(), const Page4()];
-
   @override
   void initState() {
     super.initState();
@@ -60,7 +57,6 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
     setState(() {
       _isLoading = true;
     });
-
     try {
       // Check permissions first
       final phoneStatus = await Permission.phone.status;
@@ -230,7 +226,6 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
       grouped[dateKey] = grouped[dateKey] ?? [];
       grouped[dateKey]!.add(call);
     }
-
     return grouped;
   }
 
@@ -252,12 +247,16 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => DashboardScreen()),
+              );
+            },
           ),
           titleSpacing: 0,
           title: TextField(
             style: const TextStyle(color: Colors.white),
-
             decoration: InputDecoration(
               isDense: true,
               contentPadding: EdgeInsets.zero,
@@ -350,12 +349,12 @@ class _RecentCallScreenState extends State<RecentCallScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Filter chips
-            // IconButton(
-            //   onPressed: () {
-            //     context.read<AuthCubit>().signOut();
-            //   },
-            //   icon: Icon(Icons.logout),
-            // ),
+            IconButton(
+              onPressed: () {
+                context.read<AuthCubit>().signOut();
+              },
+              icon: Icon(Icons.logout),
+            ),
             Divider(color: Color(0xFFE5E7EB), thickness: 0.1.w),
             Padding(
               padding: const EdgeInsets.symmetric(

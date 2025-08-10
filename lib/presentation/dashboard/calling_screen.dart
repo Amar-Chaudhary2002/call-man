@@ -38,6 +38,7 @@ class _CallingScreenState extends State<CallingScreen> {
   StreamSubscription<List<CallRecord>>? _historySubscription;
   String selectedPeriod = 'Today';
   String selectedTab = 'Recent';
+
   @override
   void initState() {
     super.initState();
@@ -268,7 +269,6 @@ class _CallingScreenState extends State<CallingScreen> {
     };
 
     List<String> periods = ['Recent', 'Favorites', 'Team'];
-
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       child: SingleChildScrollView(

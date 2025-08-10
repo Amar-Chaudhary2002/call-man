@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/presentation/dashboard/calling_screen.dart';
-import 'package:call_app/presentation/dashboard/widgets/section_tile.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,16 +16,10 @@ import 'features/task_screen.dart';
 import 'model/call_record_model.dart';
 import 'widgets/call_list.dart';
 import 'widgets/call_tracking.dart';
-import 'widgets/filter_chip_card.dart';
 import 'widgets/phone_keyboard_sheet.dart';
 
 // Call state enum
-enum CallState {
-  idle,
-  ringing,
-  offhook, // Call connected
-  disconnected,
-}
+enum CallState { idle, ringing, offhook, disconnected }
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -157,31 +148,6 @@ class _HomeScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _onRefresh() async {
-    if (!_permissionsGranted) {
-      await _requestPermissions();
-      return;
-    }
-
-    try {
-      await _callService.refreshCallLogs();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Call logs refreshed'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to refresh: ${e.toString()}')),
-        );
-      }
-    }
-  }
-
   void _openPhoneKeyboard() {
     showModalBottomSheet(
       context: context,
@@ -189,12 +155,6 @@ class _HomeScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => PhoneKeyboardSheet(callService: _callService),
     );
-  }
-
-  void _onFilterTap(String filter) {
-    setState(() {
-      selectedFilter = filter;
-    });
   }
 
   List<CallRecord> get filteredCalls {

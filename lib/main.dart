@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
           initialRoute: '/',
           routes: AppRoutes.routes,
           debugShowCheckedModeBanner: false,
-          // home: DashboardScreen(),
+          // home: CallInteractionScreen(),
         );
       },
     );
