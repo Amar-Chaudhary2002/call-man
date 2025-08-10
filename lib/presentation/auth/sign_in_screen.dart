@@ -1,13 +1,14 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/core/image_constant.dart';
-import 'package:call_app/presentation/auth/login_with_password_screen.dart';
-import 'package:call_app/presentation/auth/otp_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../blocs/auth/auth_cubit.dart';
-import '../../blocs/auth/auth_state.dart';
+import 'package:call_app/presentation/auth/otp_screen.dart';
+import 'package:call_app/blocs/auth/auth_cubit.dart';
+import 'package:call_app/blocs/auth/auth_state.dart';
+
+import 'login_with_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -41,12 +42,7 @@ class _SignInScreenState extends State<SignInScreen> {
       value: _authCubit,
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
-          print(
-            '🔥 SignIn BlocListener - Auth state changed: ${state.runtimeType}',
-          );
-
           if (state is AuthLoading) {
-            print('🔥 SignIn - AuthLoading detected');
             _isDialogShowing = true;
             showDialog(
               context: context,
@@ -54,54 +50,30 @@ class _SignInScreenState extends State<SignInScreen> {
               builder: (_) => const Center(child: CircularProgressIndicator()),
             );
           } else {
-            // Remove loader if present
             if (_isDialogShowing && Navigator.canPop(context)) {
-              print('🔥 SignIn - Closing loading dialog');
               Navigator.pop(context);
               _isDialogShowing = false;
             }
           }
 
           if (state is AuthError) {
-            print('🔥 SignIn - AuthError detected: ${state.message}');
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
           }
 
           if (state is OtpSent) {
-            print(
-              '🔥 SignIn - OtpSent detected! Verification ID: ${state.verificationId}',
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OtpScreen(
+                  verificationId: state.verificationId,
+                  phoneNumber: state.phoneNumber,
+                ),
+              ),
             );
-            print('🔥 SignIn - Phone number: ${state.phoneNumber}');
-
-            // Navigate after a short delay to ensure dialog is closed
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              print(
-                '🔥 SignIn - PostFrameCallback executing, mounted: $mounted',
-              );
-              if (mounted) {
-                print('🔥 SignIn - Actually navigating to OTP screen');
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => OtpScreen(
-                      verificationId: state.verificationId,
-                      phoneNumber: state.phoneNumber,
-                    ),
-                  ),
-                );
-                print('🔥 SignIn - Navigation to OTP screen completed');
-              }
-            });
           }
         },
         child: Scaffold(
           backgroundColor: AppColors.primaryColor,
-          resizeToAvoidBottomInset: false,
           body: SingleChildScrollView(
             child: Column(
               children: [
@@ -134,10 +106,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(23.sp),
-                        border: Border.all(
-                          color: Color(0xFFE5E7EB),
-                          width: 0.1,
-                        ),
+                        border: Border.all(color: Color(0xFFE5E7EB), width: 0.1),
                         gradient: const LinearGradient(
                           colors: [Color(0xFF082046), Color(0xFF45006E)],
                           begin: Alignment.topLeft,
@@ -183,6 +152,15 @@ class _SignInScreenState extends State<SignInScreen> {
                             onCountryChanged: (val) {
                               setState(() => _countryCode = val);
                             },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Phone number required';
+                              }
+                              if (value.length != 10) {
+                                return 'Phone number must be 10 digits';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -200,48 +178,23 @@ class _SignInScreenState extends State<SignInScreen> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () {
-                                final phone = phoneController.text.trim();
-                                if (phone.isEmpty) {
+                                if (phoneController.text.trim().length != 10) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Phone number required'),
-                                    ),
+                                    const SnackBar(content: Text('Please enter a valid phone number')),
                                   );
                                   return;
                                 }
-                                print(
-                                  "🚀 SignIn - calling to otp screen with phone: $_countryCode$phone",
-                                );
-
-                                // Use the stored cubit instance directly
-                                _authCubit.sendOtp('$_countryCode$phone');
+                                _authCubit.sendOtp('$_countryCode${phoneController.text.trim()}');
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 15,
-                                ),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 15),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Text(
-                                    "Send OTP",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(
-                                    Icons.arrow_right_alt,
-                                    color: Colors.white,
-                                  ),
-                                ],
-                              ),
+                              child: const Text("Send OTP"),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -258,20 +211,13 @@ class _SignInScreenState extends State<SignInScreen> {
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 15,
-                                ),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 15),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
                               ),
-                              child: const Text(
-                                "Login with password",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
+                              child: const Text("Login with password"),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -324,6 +270,7 @@ class _SignInScreenState extends State<SignInScreen> {
     required TextEditingController controller,
     required String initialCountryCode,
     required void Function(String) onCountryChanged,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -343,10 +290,10 @@ class _SignInScreenState extends State<SignInScreen> {
               items: <String>['+91', '+1', '+44', '+61']
                   .map<DropdownMenuItem<String>>(
                     (String value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    ),
-                  )
+                  value: value,
+                  child: Text(value),
+                ),
+              )
                   .toList(),
               onChanged: (String? newValue) {
                 if (newValue != null) onCountryChanged(newValue);
@@ -355,7 +302,7 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
           const VerticalDivider(color: Colors.white24, thickness: 1, width: 20),
           Expanded(
-            child: TextField(
+            child: TextFormField(
               controller: controller,
               keyboardType: TextInputType.phone,
               style: const TextStyle(color: Colors.white),
@@ -370,6 +317,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
+              validator: validator,
             ),
           ),
         ],

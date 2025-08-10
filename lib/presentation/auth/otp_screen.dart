@@ -1,11 +1,11 @@
-import 'package:call_app/core/constant/app_color.dart';
-import 'package:call_app/core/image_constant.dart';
-import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
+import 'package:call_app/core/constant/app_color.dart';
+import 'package:call_app/core/image_constant.dart';
+import 'package:call_app/presentation/auth/login_success_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String verificationId;
@@ -35,21 +35,18 @@ class _OtpScreenState extends State<OtpScreen> {
             builder: (_) => const Center(child: CircularProgressIndicator()),
           );
         } else {
-          // Remove loader if present
           if (Navigator.canPop(context)) Navigator.pop(context);
         }
 
         if (state is AuthError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
         }
 
         if (state is AuthSuccess) {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => LoginSuccessScreen()),
-            (route) => false,
+                (route) => false,
           );
         }
       },
@@ -89,19 +86,12 @@ class _OtpScreenState extends State<OtpScreen> {
               Pinput(
                 controller: _otpController,
                 length: 6,
-                defaultPinTheme: PinTheme(
-                  width: 56,
-                  height: 56,
-                  textStyle: const TextStyle(
-                    fontSize: 20,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                validator: (value) {
+                  if (value == null || value.length != 6) {
+                    return 'Please enter a valid 6-digit OTP';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               const Text(
@@ -116,7 +106,6 @@ class _OtpScreenState extends State<OtpScreen> {
               const SizedBox(height: 4),
               TextButton(
                 onPressed: () {
-                  // You can call resend here if needed
                   context.read<AuthCubit>().sendOtp(widget.phoneNumber);
                 },
                 child: const Text(
