@@ -30,7 +30,7 @@ class AppRoutes {
     signUp: (_) => const SignUpScreen(),
     signIn: (_) => const SignInScreen(),
     otp: (_) => OtpScreen(phoneNumber: '', verificationId: ''),
-    loginSuccess: (_) => const LoginSuccessScreen(),
+    // loginSuccess: (_) => const LoginSuccessScreen(),
     loginWithPassword: (_) => const LoginWithPasswordScreen(),
     home: (_) => const DashboardScreen(),
   };

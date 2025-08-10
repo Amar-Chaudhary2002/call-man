@@ -1,18 +1,18 @@
-// auth_cubit.dart
 import 'dart:developer';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../model/user_model.dart';
 import 'auth_state.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String? _verificationId;
+  int? _resendToken;
 
   AuthCubit() : super(AuthInitial());
 
-  // Register with email and password
+  // Register with email + password
   Future<void> register({
     required String email,
     required String password,
@@ -20,63 +20,58 @@ class AuthCubit extends Cubit<AuthState> {
   }) async {
     try {
       emit(AuthLoading());
-      log('Attempting registration for email: $email'); // Added logging
+      log('Attempting registration for email: $email');
 
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
+      final result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      if (result.user != null) {
-        await result.user!.updateDisplayName(phoneNumber);
-        log('Registration successful for user: ${result.user!.uid}');
-        emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
-      }
+      // optionally store phone as displayName
+      await result.user?.updateDisplayName(phoneNumber);
+
+      emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
     } on FirebaseAuthException catch (e) {
       log('Registration error: ${e.code} - ${e.message}');
       emit(AuthError(_getErrorMessage(e.code)));
     } catch (e) {
-      log('Unexpected error: $e');
+      log('Unexpected registration error: $e');
       emit(AuthError('Registration failed: $e'));
     }
   }
 
-  // Login with email and password
+  // Login with email + password
   Future<void> loginWithEmail({
     required String email,
     required String password,
   }) async {
     try {
       emit(AuthLoading());
-      log('Attempting login for email: $email'); // Added logging
-
-      UserCredential result = await _auth.signInWithEmailAndPassword(
+      log('Attempting login for email: $email');
+      final result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      if (result.user != null) {
-        log('Login successful for user: ${result.user!.uid}');
-
-        emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
-      }
+      emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
     } on FirebaseAuthException catch (e) {
       log('Login error: ${e.code} - ${e.message}');
       emit(AuthError(_getErrorMessage(e.code)));
     } catch (e) {
-      log('Unexpected error: $e');
+      log('Unexpected login error: $e');
       emit(AuthError('Login failed: $e'));
     }
   }
 
-  // Send OTP to phone
-  Future<void> sendOtp(String phoneNumber) async {
+  // Send / Resend OTP
+  Future<void> sendOtp(String phoneNumber, {bool forceResend = false}) async {
     try {
       emit(AuthLoading());
-      log('Sending OTP to: $phoneNumber'); // Added logging
+      log('Sending OTP to: $phoneNumber (forceResend=$forceResend)');
 
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: forceResend ? _resendToken : null,
         verificationCompleted: (PhoneAuthCredential credential) async {
           try {
             await _auth.signInWithCredential(credential);
@@ -95,20 +90,19 @@ class AuthCubit extends Cubit<AuthState> {
         },
         codeSent: (String verificationId, int? resendToken) {
           _verificationId = verificationId;
-          log('OTP sent successfully. VerificationId: $verificationId');
-          emit(
-            OtpSent(
-              message: 'OTP sent successfully',
-              verificationId: verificationId,
-              phoneNumber: phoneNumber,
-            ),
-          );
+          _resendToken = resendToken;
+          log('OTP sent. verificationId: $verificationId, resendToken: $resendToken');
+          emit(OtpSent(
+            message: 'OTP sent successfully',
+            verificationId: verificationId,
+            phoneNumber: phoneNumber,
+            resendToken: resendToken,
+          ));
         },
         codeAutoRetrievalTimeout: (String verificationId) {
           _verificationId = verificationId;
           log('Code auto retrieval timeout. VerificationId: $verificationId');
         },
-        timeout: const Duration(seconds: 60),
       );
     } catch (e) {
       log('Send OTP error: $e');
@@ -116,32 +110,19 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Verify OTP
+  // Verify OTP (verificationId is required)
   Future<void> verifyOtp(String otp, String verificationId) async {
     try {
       emit(AuthLoading());
+      log('Verifying OTP: $otp with verificationId: $verificationId');
 
-      final vId = verificationId ?? _verificationId;
-
-      if (vId == null) {
-        log('No verificationId found');
-        emit(AuthError('Please request OTP first'));
-        return;
-      }
-
-      log('Verifying OTP: $otp with verificationId: $vId'); // Added logging
-
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: vId,
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
         smsCode: otp,
       );
 
-      UserCredential result = await _auth.signInWithCredential(credential);
-
-      if (result.user != null) {
-        log('OTP verification successful for user: ${result.user!.uid}');
-        emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
-      }
+      final result = await _auth.signInWithCredential(credential);
+      emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
     } on FirebaseAuthException catch (e) {
       log('OTP verification failed: ${e.code} - ${e.message}');
       emit(AuthError(_getErrorMessage(e.code)));
@@ -151,13 +132,53 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
     emit(AuthInitial());
   }
 
-  // Check if user is already logged in
+  Future<void> signInWithGoogle() async {
+    try {
+      emit(AuthLoading());
+
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        emit(AuthError('Google sign-in was cancelled'));
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final result = await _auth.signInWithCredential(credential);
+      emit(AuthSuccess(UserModel.fromFirebaseUser(result.user!)));
+    } on FirebaseAuthException catch (e) {
+      log('Google sign-in error: ${e.code} - ${e.message}');
+      emit(AuthError(_getErrorMessage(e.code)));
+    } catch (e) {
+      log('Google sign-in unexpected error: $e');
+      emit(AuthError('Google sign-in failed: $e'));
+    }
+  }
+
+  // --- Password reset ---
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      emit(AuthLoading());
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      emit(AuthError('Password reset email sent to $email'));
+      // Use AuthError to show a non-success snack without changing route;
+      // or define a new state like PasswordResetSent if you prefer.
+    } on FirebaseAuthException catch (e) {
+      emit(AuthError(_getErrorMessage(e.code)));
+    } catch (e) {
+      emit(AuthError('Failed to send reset email: $e'));
+    }
+  }
+
   void checkAuthStatus() {
     final user = _auth.currentUser;
     if (user != null) {
@@ -169,7 +190,6 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Error message helper
   String _getErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':

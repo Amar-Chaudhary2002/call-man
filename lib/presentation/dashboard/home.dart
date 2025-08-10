@@ -204,14 +204,21 @@ class _HomeScreenState extends State<DashboardScreen> {
           surfaceTintColor: Colors.transparent,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF4B5563)),
+          leading:
+          // IconButton(
+          //   icon: const Icon(Icons.menu, color: Color(0xFF4B5563)),
+          //   onPressed: () {
+          //     // Navigator.push(
+          //     //   context,
+          //     //   MaterialPageRoute(builder: (context) => CallingScreen()),
+          //     // );
+          //   },
+          // ),
+          IconButton(
             onPressed: () {
-              // Navigator.push(
-              //   context,
-              //   MaterialPageRoute(builder: (context) => CallingScreen()),
-              // );
+              context.read<AuthCubit>().signOut();
             },
+            icon: Icon(Icons.logout),
           ),
           titleSpacing: 0,
           title: TextField(
@@ -278,6 +285,12 @@ class _HomeScreenState extends State<DashboardScreen> {
                   icon: const Icon(Icons.notifications, color: Colors.white),
                   onPressed: () {},
                 ),
+                IconButton(
+                  onPressed: () {
+                    context.read<AuthCubit>().signOut();
+                  },
+                  icon: Icon(Icons.logout),
+                ),
                 Positioned(
                   right: 10,
                   top: 10,
@@ -292,10 +305,10 @@ class _HomeScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            IconButton(
-              icon: const Icon(Icons.filter_list, color: Colors.white),
-              onPressed: () {},
-            ),
+            // IconButton(
+            //   icon: const Icon(Icons.filter_list, color: Colors.white),
+            //   onPressed: () {},
+            // ),
           ],
         ),
         body: Column(
