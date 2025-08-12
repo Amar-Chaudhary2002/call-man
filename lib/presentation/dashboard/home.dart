@@ -11,7 +11,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import 'features/calender_screen.dart';
 import 'features/call_logs_screen.dart';
 import 'features/lead_screen.dart';
@@ -19,7 +18,6 @@ import 'features/task_screen.dart';
 import 'model/call_record_model.dart';
 import 'widgets/call_list.dart';
 import 'widgets/call_tracking.dart';
-import 'widgets/filter_chip_card.dart';
 import 'widgets/phone_keyboard_sheet.dart';
 
 // Call state enum
@@ -55,6 +53,8 @@ class _HomeScreenState extends State<DashboardScreen> {
     super.initState();
     _initializeCallTracking();
   }
+
+
 
   Future<void> _initializeCallTracking() async {
     setState(() {
