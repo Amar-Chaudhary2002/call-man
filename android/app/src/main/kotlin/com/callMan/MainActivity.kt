@@ -1,4 +1,4 @@
-package com.example.call_app
+package com.callMan
 
 import io.flutter.embedding.android.FlutterActivity
 

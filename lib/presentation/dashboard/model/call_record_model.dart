@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../recent_call_screen.dart';
+import 'call_state.dart';
 
 class CallRecord {
   final String phoneNumber;

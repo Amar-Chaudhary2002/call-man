@@ -2,10 +2,11 @@
 
 import 'dart:developer';
 
-import 'package:call_app/core/constant/app_color.dart';
+// import 'package:call_app/core/constant/app_color.dart';
 import 'package:call_app/core/image_constant.dart';
 import 'package:call_app/presentation/auth/forget_password.dart';
-import 'package:call_app/presentation/auth/login_success_screen.dart';
+import 'package:call_app/presentation/auth/sign_in_screen.dart';
+// import 'package:call_app/presentation/auth/login_success_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
 import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:flutter/cupertino.dart';
@@ -16,7 +17,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
-import '../dashboard/home.dart';
+// import '../dashboard/home.dart';
 
 class LoginWithPasswordScreen extends StatefulWidget {
   const LoginWithPasswordScreen({super.key});
@@ -125,7 +126,17 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
               child: Column(
                 children: [
                   SizedBox(height: 50.h),
-                  Image.asset(ImageConstant.callmanicon),
+                  // Image.asset(ImageConstant.callmanicon),
+                  Container(
+                    height: 64.h,
+                    width: 64.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text("LOGO"),
+                  ),
                   SizedBox(height: 1.h),
                   Text(
                     "CallMan",
@@ -239,11 +250,37 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                                 Spacer(),
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            ForgotPasswordScreen(),
+                                    Navigator.of(context).push(
+                                      PageRouteBuilder(
+                                        pageBuilder:
+                                            (
+                                              context,
+                                              animation,
+                                              secondaryAnimation,
+                                            ) => ForgotPasswordScreen(),
+                                        transitionsBuilder:
+                                            (
+                                              context,
+                                              animation,
+                                              secondaryAnimation,
+                                              child,
+                                            ) {
+                                              const begin = Offset(1.0, 0.0);
+                                              const end = Offset.zero;
+                                              const curve = Curves.ease;
+
+                                              var tween = Tween(
+                                                begin: begin,
+                                                end: end,
+                                              ).chain(CurveTween(curve: curve));
+
+                                              return SlideTransition(
+                                                position: animation.drive(
+                                                  tween,
+                                                ),
+                                                child: child,
+                                              );
+                                            },
                                       ),
                                     );
                                   },
@@ -375,38 +412,98 @@ class _LoginWithPasswordScreenState extends State<LoginWithPasswordScreen> {
                               ),
                             ),
                             SizedBox(height: 12.h),
-                            Container(
-                              width: 167.w,
-                              height: 25.h,
-                              // margin: EdgeInsets.only(left: 35, right: 35),
-                              // padding: EdgeInsets.symmetric(
-                              //   // horizontal: 20,
-                              //   vertical: 7,
-                              // ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(7),
-                                border: Border.all(
-                                  color: Color(0xFFE5E7EB),
-                                  width: 0.1,
+                            InkWell(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const SignInScreen(),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.ease;
+
+                                          var tween = Tween(
+                                            begin: begin,
+                                            end: end,
+                                          ).chain(CurveTween(curve: curve));
+
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 167.w,
+                                height: 25.h,
+                                // margin: EdgeInsets.only(left: 35, right: 35),
+                                // padding: EdgeInsets.symmetric(
+                                //   // horizontal: 20,
+                                //   vertical: 7,
+                                // ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(7),
+                                  border: Border.all(
+                                    color: Color(0xFFE5E7EB),
+                                    width: 0.1,
+                                  ),
                                 ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                "Sign in with OTP",
-                                style: GoogleFonts.roboto(
-                                  color: Colors.white,
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "Sign in with OTP",
+                                  style: GoogleFonts.roboto(
+                                    color: Colors.white,
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
                             SizedBox(height: 32.h),
                             GestureDetector(
                               onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SignUpScreen(),
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const SignUpScreen(),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.ease;
+
+                                          var tween = Tween(
+                                            begin: begin,
+                                            end: end,
+                                          ).chain(CurveTween(curve: curve));
+
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
                                   ),
                                 );
                               },

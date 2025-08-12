@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/blocs/auth/auth_state.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
 import 'package:call_app/routes/app_routes.dart';
 import 'package:flutter/cupertino.dart';
@@ -49,7 +50,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _next() {
-    if (_currentPage < 3) {
+    if (_currentPage < 0) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -105,7 +106,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           }
 
           if (state is AuthSuccess) {
-            return RecentCallScreen();
+            return DashboardScreen();
           }
           // Show onboarding for non-authenticated users
           return _buildOnboardingScreen();

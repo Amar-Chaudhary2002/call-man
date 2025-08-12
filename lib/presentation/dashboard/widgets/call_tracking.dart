@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../recent_call_screen.dart';
+import '../model/call_state.dart';
 
 class CallTrackingService {
   static CallTrackingService? _instance;

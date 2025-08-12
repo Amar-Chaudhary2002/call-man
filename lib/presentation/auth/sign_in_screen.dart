@@ -56,7 +56,8 @@ class _SignInScreenState extends State<SignInScreen> {
     final raw = v?.trim() ?? '';
     if (raw.isEmpty) return 'Phone number required';
     final digitsOnly = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digitsOnly.length < 6 || digitsOnly.length > 15) return 'Enter a valid phone number';
+    if (digitsOnly.length < 6 || digitsOnly.length > 15)
+      return 'Enter a valid phone number';
     return null;
   }
 
@@ -72,9 +73,9 @@ class _SignInScreenState extends State<SignInScreen> {
 
         if (state is AuthError) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
 
         if (state is AuthSuccess) {
@@ -82,7 +83,7 @@ class _SignInScreenState extends State<SignInScreen> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                (_) => false,
+            (_) => false,
           );
         }
 
@@ -117,7 +118,17 @@ class _SignInScreenState extends State<SignInScreen> {
             child: Column(
               children: [
                 SizedBox(height: 50.h),
-                Image.asset(ImageConstant.callmanicon),
+                // Image.asset(ImageConstant.callmanicon),
+                Container(
+                  height: 64.h,
+                  width: 64.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text("LOGO"),
+                ),
                 SizedBox(height: 1.h),
                 Text(
                   "CallMan",
@@ -144,7 +155,10 @@ class _SignInScreenState extends State<SignInScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(24.sp),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 0.1,
+                        ),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x66000000),
@@ -182,7 +196,8 @@ class _SignInScreenState extends State<SignInScreen> {
                               hint: "9876543210",
                               controller: phoneController,
                               initialCountryCode: _countryCode,
-                              onCountryChanged: (val) => setState(() => _countryCode = val),
+                              onCountryChanged: (val) =>
+                                  setState(() => _countryCode = val),
                               validator: _phoneValidator,
                             ),
                             const SizedBox(height: 8),
@@ -200,14 +215,20 @@ class _SignInScreenState extends State<SignInScreen> {
                               width: 278.w,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                                  final phone = phoneController.text.trim().replaceAll(' ', '');
+                                  if (!(_formKey.currentState?.validate() ??
+                                      false))
+                                    return;
+                                  final phone = phoneController.text
+                                      .trim()
+                                      .replaceAll(' ', '');
                                   final full = '$_countryCode$phone';
                                   context.read<AuthCubit>().sendOtp(full);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(9),
                                   ),
@@ -224,7 +245,10 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                     ),
                                     SizedBox(width: 5.w),
-                                    const Icon(CupertinoIcons.arrow_right, color: Color(0xFF0F172A)),
+                                    const Icon(
+                                      CupertinoIcons.arrow_right,
+                                      color: Color(0xFF0F172A),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -233,9 +257,13 @@ class _SignInScreenState extends State<SignInScreen> {
                             Row(
                               children: [
                                 SizedBox(width: 33.w),
-                                const Expanded(child: Divider(color: Colors.white24)),
+                                const Expanded(
+                                  child: Divider(color: Colors.white24),
+                                ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
                                   child: Text(
                                     "Or continue with",
                                     style: GoogleFonts.roboto(
@@ -245,55 +273,63 @@ class _SignInScreenState extends State<SignInScreen> {
                                     ),
                                   ),
                                 ),
-                                const Expanded(child: Divider(color: Colors.white24)),
+                                const Expanded(
+                                  child: Divider(color: Colors.white24),
+                                ),
                                 SizedBox(width: 33.w),
                               ],
-                            ),
-                            SizedBox(height: 16.h),
-                            SizedBox(
-                              width: 278.w,
-                              child: OutlinedButton(
-                                onPressed: () => context.read<AuthCubit>().signInWithGoogle(),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Color(0xFFE5E7EB), width: 0.1),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                                  backgroundColor: Colors.transparent,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // SvgPicture.asset("assets/images/google icon.svg", height: 20, width: 20),
-                                    const Icon(Icons.login, size: 18, color: Colors.white70),
-                                    SizedBox(width: 8.w),
-                                    Text(
-                                      "Continue with Google",
-                                      style: GoogleFonts.roboto(
-                                        color: Colors.white,
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ),
                             SizedBox(height: 20.h),
                             SizedBox(
                               width: 278.w,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const LoginWithPasswordScreen()),
+                                  Navigator.of(context).push(
+                                    PageRouteBuilder(
+                                      pageBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                          ) => const LoginWithPasswordScreen(),
+                                      transitionsBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                            child,
+                                          ) {
+                                            const begin = Offset(
+                                              1.0,
+                                              0.0,
+                                            ); // Slide from right
+                                            const end = Offset.zero;
+                                            const curve = Curves.ease;
+
+                                            var tween = Tween(
+                                              begin: begin,
+                                              end: end,
+                                            ).chain(CurveTween(curve: curve));
+
+                                            return SlideTransition(
+                                              position: animation.drive(tween),
+                                              child: child,
+                                            );
+                                          },
+                                    ),
                                   );
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(9),
-                                    side: BorderSide(color: const Color(0xFFE5E7EB), width: 0.1.w),
+                                    side: BorderSide(
+                                      color: const Color(0xFFE5E7EB),
+                                      width: 0.1.w,
+                                    ),
                                   ),
                                 ),
                                 child: Text(
@@ -306,27 +342,40 @@ class _SignInScreenState extends State<SignInScreen> {
                                 ),
                               ),
                             ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) =>  ForgotPasswordScreen()),
-                                );
-                              },
-                              child: Text(
-                                "Forgot password?",
-                                style: GoogleFonts.roboto(
-                                  color: Colors.white.withOpacity(0.85),
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
+
                             SizedBox(height: 12.h),
                             GestureDetector(
                               onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const SignUpScreen(),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.ease;
+
+                                          var tween = Tween(
+                                            begin: begin,
+                                            end: end,
+                                          ).chain(CurveTween(curve: curve));
+
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
+                                  ),
                                 );
                               },
                               child: Text.rich(
@@ -398,8 +447,18 @@ class _SignInScreenState extends State<SignInScreen> {
         border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          BoxShadow(color: Color(0x1A000000), offset: Offset(0, 10), blurRadius: 15, spreadRadius: 0),
-          BoxShadow(color: Color(0x1A000000), offset: Offset(0, 4), blurRadius: 6, spreadRadius: 0),
+          BoxShadow(
+            color: Color(0x1A000000),
+            offset: Offset(0, 10),
+            blurRadius: 15,
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Color(0x1A000000),
+            offset: Offset(0, 4),
+            blurRadius: 6,
+            spreadRadius: 0,
+          ),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -412,7 +471,9 @@ class _SignInScreenState extends State<SignInScreen> {
               dropdownColor: const Color(0xFF25316D),
               style: const TextStyle(color: Colors.white),
               items: <String>['+91', '+1', '+44', '+61']
-                  .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
+                  .map(
+                    (v) => DropdownMenuItem<String>(value: v, child: Text(v)),
+                  )
                   .toList(),
               onChanged: (v) {
                 if (v != null) onCountryChanged(v);

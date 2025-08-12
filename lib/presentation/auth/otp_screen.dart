@@ -59,9 +59,9 @@ class _OtpScreenState extends State<OtpScreen> {
 
         if (state is AuthError) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
 
         if (state is AuthSuccess) {
@@ -69,7 +69,7 @@ class _OtpScreenState extends State<OtpScreen> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                (route) => false,
+            (route) => false,
           );
         }
       },
@@ -89,7 +89,17 @@ class _OtpScreenState extends State<OtpScreen> {
             child: Column(
               children: [
                 SizedBox(height: 50.h),
-                Image.asset(ImageConstant.lockicon, height: 150),
+                // Image.asset(ImageConstant.lockicon, height: 150),
+                Container(
+                  height: 64.h,
+                  width: 64.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text("LOGO"),
+                ),
                 SizedBox(height: 5.h),
                 Text(
                   "Enter OTP",
@@ -123,11 +133,24 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.transparent,
-                      border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
+                      border: Border.all(
+                        color: const Color(0xFFE5E7EB),
+                        width: 0.1,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: const [
-                        BoxShadow(color: Color(0x1A000000), offset: Offset(0, 10), blurRadius: 15, spreadRadius: 0),
-                        BoxShadow(color: Color(0x1A000000), offset: Offset(0, 4), blurRadius: 6, spreadRadius: 0),
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          offset: Offset(0, 10),
+                          blurRadius: 15,
+                          spreadRadius: 0,
+                        ),
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          offset: Offset(0, 4),
+                          blurRadius: 6,
+                          spreadRadius: 0,
+                        ),
                       ],
                     ),
                   ),
@@ -153,7 +176,10 @@ class _OtpScreenState extends State<OtpScreen> {
                 const SizedBox(height: 4),
                 TextButton(
                   onPressed: () {
-                    context.read<AuthCubit>().sendOtp(widget.phoneNumber, forceResend: true);
+                    context.read<AuthCubit>().sendOtp(
+                      widget.phoneNumber,
+                      forceResend: true,
+                    );
                   },
                   child: Text(
                     "Resend OTP",
@@ -174,16 +200,23 @@ class _OtpScreenState extends State<OtpScreen> {
                       final otp = _otpController.text.trim();
                       if (otp.length != 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid 6-digit OTP')),
+                          const SnackBar(
+                            content: Text('Please enter a valid 6-digit OTP'),
+                          ),
                         );
                         return;
                       }
-                      context.read<AuthCubit>().verifyOtp(otp, widget.verificationId);
+                      context.read<AuthCubit>().verifyOtp(
+                        otp,
+                        widget.verificationId,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
                       elevation: 0,
                     ),
                     child: Row(
@@ -198,7 +231,10 @@ class _OtpScreenState extends State<OtpScreen> {
                           ),
                         ),
                         SizedBox(width: 5.w),
-                        const Icon(CupertinoIcons.arrow_right, color: Color(0xFF0F172A)),
+                        const Icon(
+                          CupertinoIcons.arrow_right,
+                          color: Color(0xFF0F172A),
+                        ),
                       ],
                     ),
                   ),

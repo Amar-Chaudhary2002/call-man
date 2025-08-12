@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 
-class Page2 extends StatelessWidget {
-  const Page2({Key? key}) : super(key: key);
+class TaskScreen extends StatelessWidget {
+  const TaskScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Text(
-        "Tasks",
-        style: TextStyle(
-          color: Colors.green[900],
-          fontSize: 45,
-          fontWeight: FontWeight.w500,
-        ),
+        'Task Screen',
+        style: TextStyle(color: Colors.white, fontSize: 24),
       ),
     );
   }

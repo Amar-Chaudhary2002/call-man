@@ -59,7 +59,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _emailValidator(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return 'Email is required';
-    final ok = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[A-Za-z]{2,}$').hasMatch(s);
+    final ok = RegExp(
+      r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[A-Za-z]{2,}$',
+    ).hasMatch(s);
     return ok ? null : 'Please enter a valid email';
   }
 
@@ -67,7 +69,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return 'Phone number is required';
     final digits = s.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length < 6 || digits.length > 15) return 'Enter a valid phone number';
+    if (digits.length < 6 || digits.length > 15)
+      return 'Enter a valid phone number';
     return null;
   }
 
@@ -90,18 +93,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
         } else {
           _hideLoader();
         }
-
         if (state is AuthError) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
         }
-
         if (state is AuthSuccess) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Registration Successful!"), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text("Registration Successful!"),
+              backgroundColor: Colors.green,
+            ),
           );
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const DashboardScreen()),
@@ -123,7 +127,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: Column(
               children: [
                 SizedBox(height: 50.h),
-                Image.asset(ImageConstant.callmanicon),
+                // Image.asset(ImageConstant.callmanicon),
+                Container(
+                  height: 64.h,
+                  width: 64.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text("LOGO"),
+                ),
                 SizedBox(height: 1.h),
                 Text(
                   "CallMan",
@@ -152,7 +166,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(24.sp),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 0.1,
+                        ),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x66000000),
@@ -217,8 +234,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               controller: confirmController,
                               hint: "Re-Enter your password",
                               obscureText: true,
-                              validator: (v) =>
-                              v == passController.text ? null : 'Passwords do not match',
+                              validator: (v) => v == passController.text
+                                  ? null
+                                  : 'Passwords do not match',
                             ),
 
                             const SizedBox(height: 2),
@@ -227,9 +245,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             Row(
                               children: [
                                 Checkbox(
-                                  side: const BorderSide(color: Colors.white, width: 1),
+                                  side: const BorderSide(
+                                    color: Colors.white,
+                                    width: 1,
+                                  ),
                                   value: rememberMe,
-                                  onChanged: (val) => setState(() => rememberMe = val ?? false),
+                                  onChanged: (val) =>
+                                      setState(() => rememberMe = val ?? false),
                                   activeColor: Colors.white,
                                   checkColor: Colors.black,
                                 ),
@@ -251,7 +273,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               width: 278.w,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  if (!(_formKey.currentState?.validate() ?? false)) return;
+                                  if (!(_formKey.currentState?.validate() ??
+                                      false))
+                                    return;
                                   context.read<AuthCubit>().register(
                                     email: emailController.text.trim(),
                                     password: passController.text.trim(),
@@ -260,7 +284,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -277,7 +303,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       ),
                                     ),
                                     SizedBox(width: 5.w),
-                                    const Icon(CupertinoIcons.arrow_right, color: Color(0xFF0F172A)),
+                                    const Icon(
+                                      CupertinoIcons.arrow_right,
+                                      color: Color(0xFF0F172A),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -289,9 +318,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             Row(
                               children: [
                                 SizedBox(width: 33.w),
-                                const Expanded(child: Divider(color: Colors.white24)),
+                                const Expanded(
+                                  child: Divider(color: Colors.white24),
+                                ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
                                   child: Text(
                                     "Or continue with",
                                     style: GoogleFonts.roboto(
@@ -301,7 +334,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                   ),
                                 ),
-                                const Expanded(child: Divider(color: Colors.white24)),
+                                const Expanded(
+                                  child: Divider(color: Colors.white24),
+                                ),
                                 SizedBox(width: 33.w),
                               ],
                             ),
@@ -310,13 +345,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                             // ---------- Google pill (as per new UI sizing) ----------
                             GestureDetector(
-                              onTap: () => context.read<AuthCubit>().signInWithGoogle(),
+                              onTap: () =>
+                                  context.read<AuthCubit>().signInWithGoogle(),
                               child: Container(
                                 width: 167.w,
                                 height: 25.h,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(7),
-                                  border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                    width: 0.1,
+                                  ),
                                 ),
                                 alignment: Alignment.center,
                                 child: Row(
@@ -348,9 +387,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             GestureDetector(
                               onTap: () {
                                 // Take users to Sign In -> Send OTP flow
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const SignInScreen()),
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const SignInScreen(),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.ease;
+
+                                          var tween = Tween(
+                                            begin: begin,
+                                            end: end,
+                                          ).chain(CurveTween(curve: curve));
+
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
+                                  ),
                                 );
                               },
                               child: Container(
@@ -358,7 +424,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 height: 25.h,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(7),
-                                  border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                    width: 0.1,
+                                  ),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -377,9 +446,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             // ---------- Footer link ----------
                             GestureDetector(
                               onTap: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const SignInScreen()),
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const SignInScreen(),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.ease;
+
+                                          var tween = Tween(
+                                            begin: begin,
+                                            end: end,
+                                          ).chain(CurveTween(curve: curve));
+
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
+                                  ),
                                 );
                               },
                               child: const Text.rich(
@@ -404,27 +500,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                 ),
-
-                SizedBox(height: 20.h),
-
                 // Optional security footer (mirror Sign In)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset("assets/images/secutiry.svg", height: 14),
-                    SizedBox(width: 5.w),
-                    Text(
-                      "Your data is protected with end-to-end encryption",
-                      style: GoogleFonts.roboto(
-                        color: Colors.white,
-                        fontSize: 9.2.sp,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-
                 SizedBox(height: 20.h),
               ],
             ),
@@ -456,7 +532,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           fontWeight: FontWeight.w400,
         ),
         suffixIcon: icon != null ? Icon(icon, color: Colors.white54) : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 0.1),
