@@ -22,6 +22,8 @@ enum CallState {
   ringing,
   offhook, // Call connected
   disconnected,
+  active,
+  dialing,
 }
 
 class CallingScreen extends StatefulWidget {

@@ -1,18 +1,21 @@
-
-// lib/presentation/dashboard/overlay_entity.dart
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 @pragma('vm:entry-point')
 void overlayMain() {
+  log('🚀 Overlay main started');
+  FlutterError.onError = (details) {
+    log('❌ Overlay error: ${details.exception}');
+  };
   runApp(const _OverlayApp());
 }
 
 class _OverlayApp extends StatelessWidget {
-  const _OverlayApp({super.key});
-
+  const _OverlayApp();
   @override
   Widget build(BuildContext context) {
+    log('📱 Building overlay app');
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: const _OverlayPage(),
@@ -21,15 +24,16 @@ class _OverlayApp extends StatelessWidget {
 }
 
 class _OverlayPage extends StatefulWidget {
-  const _OverlayPage({super.key});
+  const _OverlayPage();
 
   @override
   State<_OverlayPage> createState() => _OverlayPageState();
 }
 
-class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderStateMixin {
+class _OverlayPageState extends State<_OverlayPage>
+    with SingleTickerProviderStateMixin {
   String title = 'Call';
-  String subtitle = '';
+  String subtitle = 'Loading...';
   String callState = 'unknown';
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -37,33 +41,33 @@ class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderSta
   @override
   void initState() {
     super.initState();
-
-    // Initialize animation
+    log('🎨 Initializing overlay UI');
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
     );
     _animationController.forward();
-
     // Listen for data from main app
     FlutterOverlayWindow.overlayListener.listen((data) {
-      debugPrint('📡 Overlay received data: $data');
-
-      if (data is Map) {
+      log('📡 Overlay received data: $data');
+      if (data is Map && mounted) {
         setState(() {
           title = data['title']?.toString() ?? title;
           subtitle = data['subtitle']?.toString() ?? subtitle;
           callState = data['callState']?.toString() ?? callState;
         });
+        log('✅ UI updated - Title: $title, State: $callState');
       }
     });
+    log('👂 Overlay listener set up successfully');
   }
 
   @override
   void dispose() {
+    log('🗑️ Disposing overlay');
     _animationController.dispose();
     super.dispose();
   }
@@ -100,6 +104,8 @@ class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
+    log('🔄 Building overlay UI - State: $callState');
+
     return Scaffold(
       backgroundColor: Colors.black26,
       body: Center(
@@ -111,25 +117,26 @@ class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderSta
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(20),
+                constraints: const BoxConstraints(
+                  maxWidth: 320,
+                  minHeight: 150,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1F2937),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 20,
-                      spreadRadius: 5,
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 15,
+                      spreadRadius: 3,
                     ),
                   ],
-                  border: Border.all(
-                    color: _getStateColor(),
-                    width: 2,
-                  ),
+                  border: Border.all(color: _getStateColor(), width: 2),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Status indicator with icon
+                    // Status icon
                     Container(
                       width: 60,
                       height: 60,
@@ -153,6 +160,7 @@ class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderSta
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
 
@@ -173,23 +181,30 @@ class _OverlayPageState extends State<_OverlayPage> with SingleTickerProviderSta
                       children: [
                         TextButton.icon(
                           onPressed: () async {
-                            debugPrint('🚫 Overlay dismissed');
-                            await FlutterOverlayWindow.closeOverlay();
+                            log('🚫 Overlay dismissed');
+                            try {
+                              await FlutterOverlayWindow.closeOverlay();
+                            } catch (e) {
+                              log('❌ Error closing overlay: $e');
+                            }
                           },
                           icon: const Icon(Icons.close, color: Colors.white70),
                           label: const Text(
-                            'Dismiss',
+                            'Close',
                             style: TextStyle(color: Colors.white70),
                           ),
                         ),
                         ElevatedButton.icon(
                           onPressed: () async {
-                            debugPrint('📱 Opening main app');
-                            // TODO: Implement deep link to main app
-                            await FlutterOverlayWindow.closeOverlay();
+                            log('📱 Opening main app');
+                            try {
+                              await FlutterOverlayWindow.closeOverlay();
+                            } catch (e) {
+                              log('❌ Error closing overlay: $e');
+                            }
                           },
                           icon: const Icon(Icons.open_in_new),
-                          label: const Text('Open App'),
+                          label: const Text('Open'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _getStateColor(),
                             foregroundColor: Colors.white,
