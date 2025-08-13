@@ -1,16 +1,17 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
-import 'package:call_app/presentation/dashboard/call_event_service.dart';
 import 'package:call_app/presentation/dashboard/model/call_record_model.dart';
 import 'package:call_app/presentation/dashboard/widgets/call_tracking.dart';
+import 'package:call_app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'presentation/dashboard/overlay_entity.dart' show overlayMain;
 import 'blocs/auth/auth_cubit.dart';
 import 'core/theme.dart';
 
@@ -122,66 +123,6 @@ void onBackgroundServiceStart(ServiceInstance service) async {
       }
     }
   });
-}
-
-Future<void> _initBackgroundService({required bool useForeground}) async {
-  log('🚀 Initializing background service...');
-
-  final service = FlutterBackgroundService();
-
-  try {
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onBackgroundServiceStart,
-        autoStart: true,
-        isForegroundMode: true, // Always use foreground mode for stability
-        notificationChannelId: 'call_tracking_channel',
-        initialNotificationTitle: 'Call Tracking Service',
-        initialNotificationContent: 'Starting call monitoring service...',
-        foregroundServiceNotificationId: 888,
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: true,
-        onForeground: onBackgroundServiceStart,
-        // onBackground: onBackgroundServiceStart,
-      ),
-    );
-
-    // Add small delay before starting service
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final isRunning = await service.isRunning();
-    if (!isRunning) {
-      await service.startService();
-      log('✅ Background service started');
-    } else {
-      log('✅ Background service already running');
-    }
-  } catch (e) {
-    log('❌ Failed to initialize background service: $e');
-    // Try to start without foreground mode as fallback
-    try {
-      await service.configure(
-        androidConfiguration: AndroidConfiguration(
-          onStart: onBackgroundServiceStart,
-          autoStart: false,
-          isForegroundMode: false,
-          notificationChannelId: 'call_tracking_fallback',
-          initialNotificationTitle: 'Call Tracking (Fallback)',
-          initialNotificationContent: 'Running in background mode',
-          foregroundServiceNotificationId: 889,
-        ),
-        iosConfiguration: IosConfiguration(
-          autoStart: true,
-          onForeground: onBackgroundServiceStart,
-        ),
-      );
-      await service.startService();
-      log('✅ Background service started in fallback mode');
-    } catch (fallbackError) {
-      log('❌ Fallback background service also failed: $fallbackError');
-    }
-  }
 }
 
 void main() async {
