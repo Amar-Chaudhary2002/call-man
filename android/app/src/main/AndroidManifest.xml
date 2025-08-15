@@ -3,31 +3,20 @@
     <!-- ===== Permissions ===== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Call state / placing calls -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
-
-    <!-- Read call logs (ONLY if you use CallLog.get in Dart) -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-
-    <!-- Foreground service (for background listener/overlay service) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Android 14+ specific FGS type -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
-
-    <!-- Overlay (draw over other apps) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Android 13+ runtime notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-
+    <uses-permission android:name="android.permission.SYSTEM_OVERLAY_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.USAGE_STATS" />
 
 
     <application
@@ -38,7 +27,7 @@
         android:theme="@style/LaunchTheme"
         android:enableOnBackInvokedCallback="true">
 
-        <!-- Connection service for CallKeep -->
+        <!-- Connection service -->
         <service
             android:name="io.wazo.callkeep.VoiceConnectionService"
             android:label="call-man"
@@ -49,31 +38,30 @@
             </intent-filter>
         </service>
 
-        <!-- REMOVE Huawei CallKit receiver (it caused ClassNotFoundException) -->
-        <!-- If you actually need it, add the Huawei CallKit Flutter plugin and restore this block. -->
-
-        <!-- Overlay service used by flutter_overlay_window plugin -->
-        <!-- AndroidManifest.xml, inside <application> -->
+        <!-- Enhanced Overlay Service -->
         <service
             android:name="flutter_overlay_window.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="systemExempted"
-            android:enabled="true" />
+            android:foregroundServiceType="mediaProjection|phoneCall"
+            android:enabled="true"
+            android:stopWithTask="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </service>
 
+        <!-- Single OverlayActivity declaration with all required attributes -->
         <activity
             android:name="flutter_overlay_window.OverlayActivity"
             android:theme="@style/Theme.Transparent"
             android:exported="false"
             android:excludeFromRecents="true"
-            android:launchMode="singleTop" />
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:resizeableActivity="true"/>
 
-        <!-- Optional: set a stable small icon for foreground notifications (create @drawable/ic_stat_callman) -->
-        <!--
-        <meta-data
-            android:name="flutter_background_service_notification_icon"
-            android:resource="@drawable/ic_stat_callman" />
-        -->
-
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -83,13 +71,11 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Standard launcher -->
             <intent-filter android:priority="0">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Handle tel: links (optional) -->
             <intent-filter android:priority="0">
                 <action android:name="android.intent.action.DIAL" />
                 <data android:scheme="tel" />
@@ -100,12 +86,16 @@
                 android:resource="@style/NormalTheme" />
         </activity>
 
+        <!-- Notification icon metadata -->
+<!--        <meta-data-->
+<!--            android:name="com.google.firebase.messaging.default_notification_icon"-->
+<!--            android:resource="@drawable/ic_stat_callman" />-->
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
 
-    <!-- Queries -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
