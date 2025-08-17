@@ -2,7 +2,6 @@ import 'dart:developer';
 import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/blocs/auth/auth_state.dart';
 import 'package:call_app/presentation/dashboard/home.dart';
-import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
 import 'package:call_app/routes/app_routes.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';

@@ -1,7 +1,4 @@
 import 'dart:developer';
-// import 'package:call_app/presentation/dashboard/call_features/call_end_screen.dart';
-// import 'package:call_app/presentation/dashboard/home.dart';
-// import 'package:call_app/presentation/dashboard/main_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -40,7 +37,6 @@ class MyApp extends StatelessWidget {
           title: 'CallMan',
           theme: appTheme,
           initialRoute: '/',
-
           routes: AppRoutes.routes,
           debugShowCheckedModeBanner: false,
           // home: MainNavigationScreen(),
