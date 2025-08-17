@@ -1,28 +1,17 @@
 <!-- android/app/src/main/AndroidManifest.xml -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.call_app">
 
     <!-- ===== Permissions ===== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Overlay (granted via Settings page; plugin requests it at runtime) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Call state permissions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-
-    <!-- Foreground service base permission (pre-Android 14) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- ✅ Android 14+ specific FGS permission for the declared type -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <!-- Notifications for your foreground service notification (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Optional but recommended for reliability -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -37,7 +26,7 @@
         android:requestLegacyExternalStorage="true"
         android:stopWithTask="false">
 
-        <!-- Override flutter_background_service's service to add required attributes -->
+        <!-- Background Service -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:exported="true"
@@ -45,14 +34,15 @@
             tools:replace="android:exported,android:foregroundServiceType" />
 
         <!-- Call state receiver -->
-        <receiver android:name=".CallReceiver"
+        <receiver
+            android:name=".CallReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PHONE_STATE" />
             </intent-filter>
         </receiver>
 
-        <!-- Main Activity -->
+        <!-- Main Activity (Launcher) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -61,7 +51,6 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -72,17 +61,16 @@
                 android:resource="@style/NormalTheme" />
         </activity>
 
-        <!-- Overlay Activity for system_alert_window plugin -->
+        <!-- Overlay Activity for system_alert_window -->
         <activity
             android:name=".OverlayActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:launchMode="singleInstance"
             android:excludeFromRecents="true"
-            android:taskAffinity=""
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
 
-        <!-- System Alert Window Service (required by system_alert_window plugin) -->
+        <!-- System Alert Window Service -->
         <service
             android:name="in.jvapps.system_alert_window.services.WindowService"
             android:exported="false"
