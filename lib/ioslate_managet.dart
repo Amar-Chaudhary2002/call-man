@@ -9,7 +9,10 @@ class IsolateManager {
     return IsolateNameServer.lookupPortByName(name);
   }
 
-  static bool registerPortWithName(SendPort port, [String name = FOREGROUND_PORT_NAME]) {
+  static bool registerPortWithName(
+    SendPort port, [
+    String name = FOREGROUND_PORT_NAME,
+  ]) {
     removePortNameMapping(name);
     return IsolateNameServer.registerPortWithName(port, name);
   }

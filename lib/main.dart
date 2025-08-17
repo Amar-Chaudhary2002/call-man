@@ -7,45 +7,78 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:system_alert_window/system_alert_window.dart';
+import 'package:phone_state/phone_state.dart';
 
 import 'background_service.dart';
 import 'ioslate_managet.dart';
 
 // === Overlay isolate entry point ===
 @pragma("vm:entry-point")
-void overlayMain() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: Material(color: Colors.transparent, child: OverlayWidget()),
-  ));
+void overlayMain(_) {
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Material(color: Colors.transparent, child: OverlayWidget()),
+    ),
+  );
 }
 
 class OverlayWidget extends StatefulWidget {
   const OverlayWidget({Key? key}) : super(key: key);
+
   @override
   State<OverlayWidget> createState() => _OverlayWidgetState();
 }
 
 class _OverlayWidgetState extends State<OverlayWidget> {
   String currentTime = '';
-  int overlayCount = 0;
+  int callEventCount = 0;
+  String callEventType = '';
+  String? callerNumber;
+  String? callerName;
   Timer? _tick;
+
   static const _BG_PORT_NAME = 'bg_port';
+  static bool _overlayVisible = false; // prevent duplicates
 
   @override
   void initState() {
     super.initState();
+
+    // Update clock
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => currentTime = DateTime.now().toString().substring(11, 19));
     });
 
-    // Messages from app/service
+    // Listen for messages from background
     SystemAlertWindow.overlayListener.listen((data) {
       dev.log("Overlay received: $data");
-      if (data is Map && data['type'] == 'update_count') {
+
+      if (data is Map && data['type'] == 'call_event') {
         if (!mounted) return;
-        setState(() => overlayCount = (data['count'] ?? 0) as int);
+
+        // show only on incoming/outgoing
+        final eventType = (data['event_type'] ?? '').toString().toLowerCase();
+        if (eventType == 'incoming' || eventType == 'outgoing') {
+          if (_overlayVisible) {
+            dev.log("⚠️ Overlay already visible, skipping duplicate");
+            return;
+          }
+
+          setState(() {
+            callEventCount = (data['count'] ?? 0) as int;
+            callEventType = eventType;
+            callerNumber = data['number'] as String?;
+            callerName = data['contact_name'] as String?;
+          });
+
+          _overlayVisible = true;
+          dev.log("🔥 Showing overlay: $eventType (#$callEventCount)");
+
+          // Auto close after 5s
+          Future.delayed(const Duration(seconds: 5), _closeOverlay);
+        }
       }
     });
   }
@@ -58,10 +91,14 @@ class _OverlayWidgetState extends State<OverlayWidget> {
 
   Future<void> _closeOverlay() async {
     try {
-      // Inform background to stop re-spawning overlays
+      _overlayVisible = false;
       final SendPort? bg = IsolateNameServer.lookupPortByName(_BG_PORT_NAME);
       bg?.send({'action': 'close_overlay'});
-      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+
+      await SystemAlertWindow.closeSystemWindow(
+        prefMode: SystemWindowPrefMode.OVERLAY,
+      );
+      dev.log("🔒 Overlay hidden");
     } catch (e) {
       dev.log("Error closing overlay: $e");
     }
@@ -69,54 +106,78 @@ class _OverlayWidgetState extends State<OverlayWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Compact, overflow-proof UI (fits MIUI tiny windows)
     return Center(
       child: Material(
         color: Colors.transparent,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
+          constraints: const BoxConstraints(maxWidth: 300),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue, width: 1),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _getEventColor(), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Flexible(
+                  // Call icon
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _getEventColor().withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getEventIcon(),
+                      size: 20,
+                      color: _getEventColor(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Call info
+                  Expanded(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.schedule, size: 16, color: Colors.blue),
-                        const SizedBox(height: 2),
                         Text(
-                          currentTime,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          callerName ?? callerNumber ?? "Unknown Caller",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Call $callEventType • #$callEventCount • $currentTime',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Overlay #$overlayCount',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   InkWell(
                     onTap: _closeOverlay,
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.all(4.0),
-                      child: Icon(Icons.close, size: 16, color: Colors.red),
+                      child: Icon(Icons.close, size: 18, color: Colors.red),
                     ),
                   ),
                 ],
@@ -127,41 +188,81 @@ class _OverlayWidgetState extends State<OverlayWidget> {
       ),
     );
   }
+
+  Color _getEventColor() {
+    switch (callEventType.toLowerCase()) {
+      case 'incoming':
+        return Colors.blue;
+      case 'answered':
+      case 'started':
+        return Colors.green;
+      case 'outgoing':
+        return Colors.orange;
+      case 'ended':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getEventIcon() {
+    switch (callEventType.toLowerCase()) {
+      case 'incoming':
+        return Icons.call_received;
+      case 'answered':
+      case 'started':
+        return Icons.call;
+      case 'outgoing':
+        return Icons.call_made;
+      case 'ended':
+        return Icons.call_end;
+      default:
+        return Icons.phone;
+    }
+  }
 }
 
-// === App ===
+// === App main ===
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Request overlay permission once
+  await SystemAlertWindow.requestPermissions();
+
   await BackgroundServiceManager.initializeService();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Background Overlay Demo',
+      title: 'Call Overlay Demo',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-      home: const OverlayDemoPage(),
+      home: const CallOverlayPage(),
     );
   }
 }
 
-class OverlayDemoPage extends StatefulWidget {
-  const OverlayDemoPage({super.key});
+class CallOverlayPage extends StatefulWidget {
+  const CallOverlayPage({super.key});
+
   @override
-  State<OverlayDemoPage> createState() => _OverlayDemoPageState();
+  State<CallOverlayPage> createState() => _CallOverlayPageState();
 }
 
-class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingObserver {
+class _CallOverlayPageState extends State<CallOverlayPage>
+    with WidgetsBindingObserver {
   final FlutterBackgroundService _service = FlutterBackgroundService();
 
-  Timer? _fgTimer;
-  bool _isOverlayActive = false; // foreground loop flag
+  bool _isCallMonitoringActive = false;
   bool _isBackgroundServiceActive = false;
-  int _overlayCount = 0;
+  bool _isAppInForeground = true;
   late ReceivePort _port;
+  PhoneState? _currentPhoneState;
+  StreamSubscription<PhoneState>? _phoneStateSubscription;
 
   @override
   void initState() {
@@ -172,11 +273,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingOb
   }
 
   Future<void> _setupForegroundPort() async {
-    final ok = await SystemAlertWindow.requestPermissions() ?? false;
-    if (!ok && mounted) {
-      _showPermissionDialog();
-      return;
-    }
     _port = ReceivePort();
     IsolateManager.registerPortWithName(_port.sendPort);
     _port.listen((msg) {
@@ -189,7 +285,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingOb
 
   Future<void> _closeOnce() async {
     try {
-      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+      await SystemAlertWindow.closeSystemWindow(
+        prefMode: SystemWindowPrefMode.OVERLAY,
+      );
     } catch (e) {
       dev.log("Error closing overlay: $e");
     }
@@ -198,7 +296,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingOb
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _fgTimer?.cancel();
+    _phoneStateSubscription?.cancel();
     SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
     IsolateManager.removePortNameMapping(IsolateManager.FOREGROUND_PORT_NAME);
     _port.close();
@@ -215,23 +313,19 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingOb
     switch (state) {
       case AppLifecycleState.detached:
       case AppLifecycleState.inactive:
-        if (_isOverlayActive) {
-          SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
-        }
-        if (_isBackgroundServiceActive) _service.invoke("app_going_inactive");
-        break;
       case AppLifecycleState.paused:
-        if (_isOverlayActive) {
-          SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+      case AppLifecycleState.hidden:
+        setState(() => _isAppInForeground = false);
+        if (_isBackgroundServiceActive) {
+          _service.invoke("app_going_inactive");
         }
         break;
       case AppLifecycleState.resumed:
-        _checkServiceStatus();
-        break;
-      case AppLifecycleState.hidden:
-        if (_isOverlayActive) {
-          SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+        setState(() => _isAppInForeground = true);
+        if (_isBackgroundServiceActive) {
+          _service.invoke("app_going_active");
         }
+        _checkServiceStatus();
         break;
     }
   }
@@ -242,240 +336,96 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> with WidgetsBindingOb
     setState(() => _isBackgroundServiceActive = isRunning);
   }
 
-  Future<bool> _checkPermissions() async =>
-      (await SystemAlertWindow.checkPermissions()) ?? false;
-
-  // ===== Foreground overlay demo (app open) =====
-  void _startForegroundOverlay() async {
-    if (!await _checkPermissions()) {
-      _showPermissionDialog();
-      return;
-    }
-    setState(() {
-      _isOverlayActive = true;
-      _overlayCount = 0;
-    });
-
-    _fgTimer?.cancel();
-    _fgTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (!_isOverlayActive) return;
-      setState(() => _overlayCount++);
-      await _showDirectOverlay(count: _overlayCount, autoClose: true);
-    });
-  }
-
-  void _stopForegroundOverlay() {
-    _fgTimer?.cancel();
-    SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
-    setState(() => _isOverlayActive = false);
-  }
-
-  // ===== Background overlay loop (survives app termination) =====
-  Future<void> _startBackgroundOverlay() async {
-    if (!await _checkPermissions()) {
-      _showPermissionDialog();
-      return;
-    }
-    await BackgroundServiceManager.startService();
-    _service.invoke("start_overlay");
-    setState(() => _isBackgroundServiceActive = true);
-
-    // poll status briefly
-    Timer.periodic(const Duration(seconds: 2), (t) async {
-      if (!mounted) return t.cancel();
-      final running = await _service.isRunning();
-      if (!mounted) return t.cancel();
-      setState(() => _isBackgroundServiceActive = running);
-      if (!running) t.cancel();
-    });
-  }
-
-  Future<void> _stopBackgroundOverlay() async {
-    _service.invoke("stop_overlay");
-    await BackgroundServiceManager.stopService();
-    setState(() => _isBackgroundServiceActive = false);
-  }
-
-  Future<void> _showDirectOverlay({required int count, bool autoClose = false}) async {
+  // ===== Call monitoring controls =====
+  Future<void> _startCallMonitoring() async {
     try {
-      await SystemAlertWindow.sendMessageToOverlay({'type': 'update_count', 'count': count});
-      await SystemAlertWindow.showSystemWindow(
-        height: 100, // compact
-        width: 280,  // compact
-        gravity: SystemWindowGravity.CENTER,
-        prefMode: SystemWindowPrefMode.OVERLAY,
-        layoutParamFlags: const [
-          SystemWindowFlags.FLAG_NOT_FOCUSABLE,
-          SystemWindowFlags.FLAG_NOT_TOUCH_MODAL,
-        ],
-      );
-      if (autoClose) {
-        Timer(const Duration(seconds: 3), () {
-          if (_isOverlayActive) {
-            SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
-          }
-        });
-      }
+      await BackgroundServiceManager.startService();
+      _service.invoke("enable_call_monitoring");
+      setState(() {
+        _isBackgroundServiceActive = true;
+        _isCallMonitoringActive = true;
+      });
+
+      _phoneStateSubscription = PhoneState.stream.listen((PhoneState state) {
+        if (!mounted) return;
+        setState(() => _currentPhoneState = state);
+        dev.log("📱 Foreground phone state: ${state.status}");
+      });
     } catch (e) {
-      dev.log("Error showing overlay: $e");
+      dev.log("Error starting call monitoring: $e");
     }
   }
 
-  void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Row(children: const [
-          Icon(Icons.warning, color: Colors.orange),
-          SizedBox(width: 8),
-          Flexible(child: Text('Permissions Required')),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('For background overlay to work reliably, enable:'),
-            SizedBox(height: 8),
-            Text('1. Display over other apps'),
-            Text('2. Background activity'),
-            Text('3. Disable battery optimization for this app'),
-            Text('4. (MIUI) Allow pop-up windows while in background'),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await SystemAlertWindow.requestPermissions();
-            },
-            child: const Text('Grant Permissions'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _stopCallMonitoring() async {
+    _phoneStateSubscription?.cancel();
+    _service.invoke("disable_call_monitoring");
+    await BackgroundServiceManager.stopService();
+    setState(() {
+      _isBackgroundServiceActive = false;
+      _isCallMonitoringActive = false;
+    });
+  }
+
+  // === Test overlay (now spawns OverlayWidget isolate) ===
+  Future<void> _testOverlay() async {
+    try {
+      dev.log("🧪 Spawning overlay isolate...");
+      Isolate.spawn(overlayMain, null);
+    } catch (e) {
+      dev.log("🧪 Error starting overlay isolate: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Background Overlay Demo'),
+        title: const Text('Call Overlay Monitor'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(children: [
-          Row(children: [
-            Expanded(
-              child: Card(
-                color: _isOverlayActive ? Colors.green.shade50 : Colors.grey.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    Icon(Icons.layers, color: _isOverlayActive ? Colors.green : Colors.grey, size: 40),
-                    const SizedBox(height: 8),
-                    Text('Foreground\nOverlay',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontWeight: FontWeight.bold, color: _isOverlayActive ? Colors.green : Colors.grey)),
-                    Text(_isOverlayActive ? 'ACTIVE' : 'INACTIVE',
-                        style: TextStyle(fontSize: 12, color: _isOverlayActive ? Colors.green : Colors.grey)),
-                  ]),
+        child: Column(
+          children: [
+            // Monitoring buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isCallMonitoringActive
+                        ? null
+                        : _startCallMonitoring,
+                    icon: const Icon(Icons.play_circle),
+                    label: const Text('Start Monitoring'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Card(
-                color: _isBackgroundServiceActive ? Colors.blue.shade50 : Colors.grey.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    Icon(Icons.cloud, color: _isBackgroundServiceActive ? Colors.blue : Colors.grey, size: 40),
-                    const SizedBox(height: 8),
-                    Text('Background\nService',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, color: _isBackgroundServiceActive ? Colors.blue : Colors.grey)),
-                    Text(_isBackgroundServiceActive ? 'RUNNING' : 'STOPPED',
-                        style: TextStyle(fontSize: 12, color: _isBackgroundServiceActive ? Colors.blue : Colors.grey)),
-                  ]),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isCallMonitoringActive
+                        ? _stopCallMonitoring
+                        : null,
+                    icon: const Icon(Icons.stop_circle),
+                    label: const Text('Stop Monitoring'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ]),
-          const SizedBox(height: 30),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                Text('Foreground Overlay (App Running)', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isOverlayActive ? null : _startForegroundOverlay,
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Start'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isOverlayActive ? _stopForegroundOverlay : null,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Stop'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    ),
-                  ),
-                ]),
-                if (_isOverlayActive)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text('Count: $_overlayCount',
-                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                  ),
-              ]),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _testOverlay,
+              icon: const Icon(Icons.bug_report),
+              label: const Text('Test Overlay'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
             ),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                Row(children: [
-                  const Icon(Icons.star, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text('Background Service (Works When App Closed)',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.blue.shade700)),
-                  ),
-                ]),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isBackgroundServiceActive ? null : _startBackgroundOverlay,
-                      icon: const Icon(Icons.cloud_upload),
-                      label: const Text('Start Background'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _isBackgroundServiceActive ? _stopBackgroundOverlay : null,
-                      icon: const Icon(Icons.cloud_off),
-                      label: const Text('Stop Background'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    ),
-                  ),
-                ]),
-              ]),
-            ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
