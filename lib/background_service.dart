@@ -1,13 +1,13 @@
-// background_service.dart - Improved version with proper isolate handling
+// background_service.dart
 import 'dart:async';
-import 'dart:ui';
 import 'dart:isolate';
-import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'dart:developer' as dev;
+
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+// DO NOT import flutter_background_service_android here; it logs a warning in background isolate.
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:system_alert_window/system_alert_window.dart';
-import 'dart:developer' as dev;
 
 class BackgroundServiceManager {
   static const String _notificationChannelId = 'overlay_service';
@@ -23,12 +23,9 @@ class BackgroundServiceManager {
       importance: Importance.low,
     );
 
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
+    final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
+    await fln
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
     await service.configure(
@@ -51,9 +48,8 @@ class BackgroundServiceManager {
 
   static Future<void> startService() async {
     final service = FlutterBackgroundService();
-    var isRunning = await service.isRunning();
-    if (!isRunning) {
-      service.startService();
+    if (!await service.isRunning()) {
+      await service.startService();
     }
   }
 
@@ -63,161 +59,122 @@ class BackgroundServiceManager {
   }
 }
 
-// Background isolate entry point
+// ===== Background isolate entry point =====
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  // CRITICAL: Only initialize DartPluginRegistrant in background isolate
-  // Do NOT call WidgetsFlutterBinding.ensureInitialized() here
+  // Initialize plugins in background isolate
   DartPluginRegistrant.ensureInitialized();
+
+  dev.log('Background service: Service started in isolate');
+
+  // Expose a port so the overlay UI can message us (e.g., Close Overlay)
+  final ReceivePort bgPort = ReceivePort();
+  const String bgPortName = 'bg_port';
+  IsolateNameServer.removePortNameMapping(bgPortName);
+  IsolateNameServer.registerPortWithName(bgPort.sendPort, bgPortName);
 
   Timer? overlayTimer;
   Timer? keepAliveTimer;
   int overlayCount = 0;
-  bool isOverlayServiceRunning = false;
-  bool appIsActive = true;
+  bool overlayLoopEnabled = false;
 
-  // Communication port for overlay commands
-  ReceivePort receivePort = ReceivePort();
-  SendPort? mainAppPort;
+  // Handle messages (e.g., from overlay UI)
+  bgPort.listen((msg) async {
+    if (msg is Map && msg['action'] == 'close_overlay') {
+      overlayLoopEnabled = false; // stop re-spawning
+      await _forceCloseOverlay();
+      _updateNotification(service, "Overlay Service Paused", "Overlay closed by user");
+    }
+  });
 
-  dev.log('Background service: Service started in isolate');
-
-  // Listen for commands from main app
+  // Start periodic overlay when asked by UI isolate
   service.on('start_overlay').listen((event) async {
-    dev.log('Background service: Starting overlay timer');
-    isOverlayServiceRunning = true;
+    overlayLoopEnabled = true;
     overlayCount = 0;
 
     overlayTimer?.cancel();
-    overlayTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
-      if (!isOverlayServiceRunning) {
-        timer.cancel();
-        return;
-      }
-
+    overlayTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!overlayLoopEnabled) return;
       overlayCount++;
-      dev.log('Background service: Triggering overlay #$overlayCount');
-
-      try {
-        // Send message to main app to show overlay
-        if (mainAppPort != null) {
-          mainAppPort!.send({
-            'action': 'show_overlay',
-            'count': overlayCount,
-          });
-        } else {
-          // Fallback: try to show overlay directly
-          await _showBackgroundOverlay(overlayCount);
-        }
-      } catch (e) {
-        dev.log('Error showing overlay: $e');
-      }
+      dev.log('Background service: Trigger overlay #$overlayCount');
+      await _showBackgroundOverlay(overlayCount);
+      _updateNotification(service, "Overlay Service Active", "Showing every 5s • Count: $overlayCount");
     });
-
-    // Update notification
-    _updateNotification(service, "Overlay Service Active",
-        "Showing overlay every 5 seconds - Count: $overlayCount");
   });
 
-  service.on('stop_overlay').listen((event) {
-    dev.log('Background service: Stopping overlay timer');
-    isOverlayServiceRunning = false;
+  // Stop periodic overlay
+  service.on('stop_overlay').listen((event) async {
+    overlayLoopEnabled = false;
     overlayTimer?.cancel();
-
-    // Send stop message to main app
-    if (mainAppPort != null) {
-      mainAppPort!.send({'action': 'close_overlay'});
-    } else {
-      _forceCloseOverlay();
-    }
-
-    _updateNotification(service, "Overlay Service Paused",
-        "Service running but overlay stopped");
+    await _forceCloseOverlay();
+    _updateNotification(service, "Overlay Service Running", "Overlay stopped");
   });
 
+  // App hints
   service.on('app_going_inactive').listen((event) {
-    dev.log('Background service: App going inactive');
-    appIsActive = false;
+    dev.log('Background service: app going inactive');
   });
 
   service.on('cleanup_on_app_exit').listen((event) {
-    dev.log('Background service: App exiting - cleaning up');
-    appIsActive = false;
-
-    if (!isOverlayServiceRunning) {
+    dev.log('Background service: cleanup on app exit');
+    // Keep service alive unless overlay loop is disabled
+    if (!overlayLoopEnabled) {
       service.stopSelf();
     }
   });
 
-  service.on('stop').listen((event) {
-    dev.log('Background service: Stopping service');
-    isOverlayServiceRunning = false;
+  // Stop service entirely
+  service.on('stop').listen((event) async {
+    overlayLoopEnabled = false;
     overlayTimer?.cancel();
     keepAliveTimer?.cancel();
-    receivePort.close();
+    bgPort.close();
+    await _forceCloseOverlay();
     service.stopSelf();
   });
 
-  service.on('register_main_port').listen((event) {
-    if (event != null && event['port'] != null) {
-      mainAppPort = event['port'] as SendPort;
-      dev.log('Background service: Main app port registered');
-    }
-  });
-
-  // Keep service alive
-  keepAliveTimer = Timer.periodic(Duration(seconds: 30), (timer) {
-    String title = isOverlayServiceRunning ? "Overlay Service Active" : "Overlay Service Running";
-    String content = isOverlayServiceRunning
-        ? "Showing overlay every 5 seconds - Count: $overlayCount"
-        : "Service running - tap to open app";
+  // Keep notification updated
+  keepAliveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    final title = overlayLoopEnabled ? "Overlay Service Active" : "Overlay Service Running";
+    final content = overlayLoopEnabled
+        ? "Overlay pops every 5 seconds"
+        : "Service ready — tap to open app";
     _updateNotification(service, title, content);
   });
 
-  _updateNotification(service, "Overlay Service Started",
-      "Ready to show overlays - tap to open app");
+  _updateNotification(service, "Overlay Service Started", "Ready to show overlays");
 }
 
 void _updateNotification(ServiceInstance service, String title, String content) {
-  if (service is AndroidServiceInstance) {
-    try {
-      service.setForegroundNotificationInfo(
-        title: title,
-        content: content,
-      );
-    } catch (e) {
-      dev.log('Error updating notification: $e');
-    }
+  try {
+    // Call Android method without importing android-specific plugin into this isolate
+    (service as dynamic).setForegroundNotificationInfo(title: title, content: content);
+  } catch (_) {
+    // ignore on non-Android
   }
 }
 
-// Simplified overlay showing for background service
 Future<void> _showBackgroundOverlay(int count) async {
   try {
-    dev.log('Background service: Attempting to show overlay directly');
+    // First push data into overlay isolate
+    await SystemAlertWindow.sendMessageToOverlay({'type': 'update_count', 'count': count});
 
-    // Send count update first
-    await SystemAlertWindow.sendMessageToOverlay({
-      'type': 'update_count',
-      'count': count,
-    });
-
-    // Show the overlay
+    // Then request a compact window (fits MIUI’s tiny height)
     await SystemAlertWindow.showSystemWindow(
-      height: 180,
-      width: 300,
+      height: 100,
+      width: 280,
       gravity: SystemWindowGravity.CENTER,
       prefMode: SystemWindowPrefMode.OVERLAY,
-      layoutParamFlags: [
+      layoutParamFlags: const [
         SystemWindowFlags.FLAG_NOT_FOCUSABLE,
         SystemWindowFlags.FLAG_NOT_TOUCH_MODAL,
       ],
     );
 
-    // Auto close after 4 seconds
-    Timer(Duration(seconds: 4), () async {
+    // Auto-close after a few seconds (so the 5s loop feels like a toast)
+    Timer(const Duration(seconds: 4), () async {
       try {
-        await SystemAlertWindow.closeSystemWindow();
+        await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
       } catch (e) {
         dev.log('Error auto-closing overlay: $e');
       }
@@ -229,8 +186,7 @@ Future<void> _showBackgroundOverlay(int count) async {
 
 Future<void> _forceCloseOverlay() async {
   try {
-    await SystemAlertWindow.closeSystemWindow();
-    dev.log('Overlay forcefully closed');
+    await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
   } catch (e) {
     dev.log('Error force closing overlay: $e');
   }
@@ -238,7 +194,6 @@ Future<void> _forceCloseOverlay() async {
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
-  // Only initialize what's necessary for iOS background
   DartPluginRegistrant.ensureInitialized();
   return true;
 }

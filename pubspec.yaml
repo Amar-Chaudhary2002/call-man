@@ -38,6 +38,7 @@ dependencies:
   installed_apps: ^1.6.0
   hive_flutter: ^1.1.0
   system_alert_window: ^2.0.7
+  flutter_background_service_android: ^6.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
