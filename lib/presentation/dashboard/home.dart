@@ -27,6 +27,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  bool _isRefreshing = false;
+
   int _currentNavIndex = 0;
   int _homeTabIndex = 0;
   final CallTrackingService _callService = CallTrackingService.instance;
@@ -153,19 +155,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _onRefresh() async {
-    if (!_permissionsGranted) {
-      await _requestPermissions();
-      return;
-    }
+    if (_isRefreshing) return; // Prevent multiple simultaneous refreshes
+
+    setState(() {
+      _isRefreshing = true;
+    });
+
     try {
-      await _callService.refreshCallLogs();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Call logs refreshed'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+      if (!_permissionsGranted) {
+        await _requestPermissions();
+      } else {
+        await _callService.refreshCallLogs();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Call logs refreshed'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -173,8 +181,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SnackBar(content: Text('Failed to refresh: ${e.toString()}')),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
+  // Future<void> _onRefresh() async {
+  //   if (!_permissionsGranted) {
+  //     await _requestPermissions();
+  //     return;
+  //   }
+  //   try {
+  //     await _callService.refreshCallLogs();
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('Call logs refreshed'),
+  //           duration: Duration(seconds: 1),
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Failed to refresh: ${e.toString()}')),
+  //       );
+  //     }
+  //   }
+  // }
 
   List<CallRecord> get filteredCalls {
     return _callService.getFilteredCalls(selectedFilter);
@@ -527,98 +564,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onRefresh: _onRefresh,
             color: Colors.white,
             backgroundColor: AppColors.primaryColor,
-            child: _isLoading
+            child: (_isLoading || _isRefreshing)
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   )
                 : !_permissionsGranted
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.phone_disabled,
-                          size: 64,
-                          color: Colors.white54,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Phone permission required',
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Pull down to retry or grant permission',
-                          style: TextStyle(color: Colors.white54, fontSize: 14),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _requestPermissions,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppColors.primaryColor,
-                          ),
-                          child: const Text('Grant Permission'),
-                        ),
-                      ],
-                    ),
-                  )
+                ? _buildPermissionView()
                 : filteredCalls.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 100),
-                      Center(
-                        child: Column(
-                          children: [
-                            Icon(Icons.call, size: 64, color: Colors.white54),
-                            SizedBox(height: 16),
-                            Text(
-                              'No calls found',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Pull down to refresh',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(left: 16, right: 16),
-                    children: [
-                      for (final entry in groupedCalls.entries) ...[
-                        SectionTitle(title: entry.key),
-                        for (final call in entry.value)
-                          CallTile(
-                            name: call.displayName,
-                            number: call.phoneNumber,
-                            time: call.formattedTime,
-                            callType: call.callType,
-                            duration: call.durationText,
-                            svgAsset: call.svgAsset,
-                            iconColor: call.callTypeColor,
-                            backgroundColor: call.callTypeBackgroundColor
-                                // ignore: deprecated_member_use
-                                .withOpacity(0.2),
-                            onTap: () =>
-                                _callService.makeCall(call.phoneNumber),
-                          ),
-                      ],
-                    ],
-                  ),
+                ? _buildEmptyView()
+                : _buildCallsList(),
           ),
         ),
+      ],
+    );
+  }
+
+  // Helper widget for permission view
+  Widget _buildPermissionView() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.phone_disabled, size: 64, color: Colors.white54),
+            const SizedBox(height: 16),
+            const Text(
+              'Phone permission required',
+              style: TextStyle(color: Colors.white70, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Pull down to retry or grant permission',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                await _requestPermissions();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primaryColor,
+              ),
+              child: const Text('Grant Permission'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Helper widget for empty view
+  Widget _buildEmptyView() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        const Center(
+          child: Column(
+            children: [
+              Icon(Icons.call, size: 64, color: Colors.white54),
+              SizedBox(height: 16),
+              Text(
+                'No calls found',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Pull down to refresh',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper widget for calls list
+  Widget _buildCallsList() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      children: [
+        for (final entry in groupedCalls.entries) ...[
+          SectionTitle(title: entry.key),
+          for (final call in entry.value)
+            CallTile(
+              name: call.displayName,
+              number: call.phoneNumber,
+              time: call.formattedTime,
+              callType: call.callType,
+              duration: call.durationText,
+              svgAsset: call.svgAsset,
+              iconColor: call.callTypeColor,
+              backgroundColor: call.callTypeBackgroundColor.withOpacity(0.2),
+              onTap: () => _callService.makeCall(call.phoneNumber),
+            ),
+        ],
       ],
     );
   }
@@ -626,46 +671,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Home tab selector (Recent, Favorites, Team)
   Widget _buildHomeTabSelector() {
     List<String> tabs = ['Recent', 'Favorites', 'Team'];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: tabs.asMap().entries.map((entry) {
-          int index = entry.key + 1;
-          String tab = entry.value;
-          bool isSelected = _homeTabIndex == index;
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: tabs.asMap().entries.map((entry) {
+            int index = entry.key + 1;
+            String tab = entry.value;
+            bool isSelected = _homeTabIndex == index;
 
-          return Padding(
-            padding: EdgeInsets.only(right: 12.w),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _homeTabIndex = index;
-                });
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 21.w, vertical: 7.h),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF172033)
-                      : const Color(0xFF334155),
-                  border: Border.all(
-                    color: const Color(0xFFE5E7EB),
-                    width: 0.1,
+            return Padding(
+              padding: EdgeInsets.only(right: 12.w),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _homeTabIndex = index;
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 21.w,
+                    vertical: 7.h,
                   ),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Text(
-                  tab,
-                  style: GoogleFonts.roboto(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF172033)
+                        : const Color(0xFF334155),
+                    border: Border.all(
+                      color: const Color(0xFFE5E7EB),
+                      width: 0.1,
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    tab,
+                    style: GoogleFonts.roboto(
+                      color: Colors.white,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

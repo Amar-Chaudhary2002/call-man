@@ -1,5 +1,4 @@
 // lib/presentation/auth/sign_in_screen.dart
-import 'package:call_app/core/image_constant.dart';
 import 'package:call_app/presentation/auth/login_with_password_screen.dart';
 import 'package:call_app/presentation/auth/otp_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
@@ -12,7 +11,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../blocs/auth/auth_cubit.dart';
 import '../../blocs/auth/auth_state.dart';
-import 'forget_password.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});

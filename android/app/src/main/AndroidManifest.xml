@@ -1,25 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- Essential Permissions for Call Detection and Overlay -->
+
+    <!-- ===== Permissions ===== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    
-    <!-- Overlay Window Permission -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <!-- Overlay permission -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    
-    <!-- Background Service Permissions -->
+
+    <!-- Background & foreground services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    
-    <!-- Phone State Listener -->
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    
-    <!-- For Android 10+ background activity -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
 
     <application
         android:label="CallMan"
@@ -29,6 +25,7 @@
         android:theme="@style/LaunchTheme"
         android:requestLegacyExternalStorage="true">
 
+        <!-- Main activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,46 +35,46 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Standard app launcher intent filter -->
+            <!-- Launcher -->
             <intent-filter android:priority="0">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Handle tel: links -->
+            <!-- Dialer intent -->
             <intent-filter android:priority="0">
                 <action android:name="android.intent.action.DIAL" />
                 <data android:scheme="tel" />
             </intent-filter>
 
-            <!-- Flutter theme metadata -->
+            <!-- Flutter normal theme -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
         </activity>
 
-        <!-- Background Service for Call Detection -->
+        <!-- Call detection service -->
         <service
-            android:name=".CallDetectionService"
+            android:name="it.mainella.phone_state.receiver.CallDetectionService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
 
-        <!-- Overlay Service -->
+        <!-- Overlay service -->
         <service
             android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
             android:exported="false" />
 
-        <!-- Flutter Background Service -->
+        <!-- Flutter background service -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:exported="false"
             android:foregroundServiceType="phoneCall"
             tools:replace="android:exported" />
 
-        <!-- Boot Receiver to restart service -->
+        <!-- Boot receiver -->
         <receiver
-            android:name=".BootReceiver"
+            android:name="it.mainella.phone_state.receiver.BootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">
@@ -88,9 +85,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- Phone State Receiver -->
+        <!-- Phone state receiver -->
         <receiver
-            android:name=".PhoneStateReceiver"
+            android:name="it.mainella.phone_state.receiver.PhoneStateReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">
@@ -104,7 +101,7 @@
             android:value="2" />
     </application>
 
-    <!-- Required for text processing -->
+    <!-- Optional queries -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

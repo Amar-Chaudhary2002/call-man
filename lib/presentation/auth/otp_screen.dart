@@ -1,5 +1,4 @@
 // lib/presentation/auth/otp_screen.dart  (kept in sync with your new UI & safe loader)
-import 'package:call_app/core/image_constant.dart';
 import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
