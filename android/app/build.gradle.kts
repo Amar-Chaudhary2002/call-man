@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.callMan"
+    namespace = "com.example.call_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -24,10 +24,10 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.callMan"
+        applicationId = "com.example.call_app"
 
         // ✅ Kotlin DSL requires function calls instead of assignments
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode
