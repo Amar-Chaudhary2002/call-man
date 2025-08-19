@@ -1,8 +1,9 @@
 import 'dart:developer';
 import 'package:call_app/blocs/auth/auth_cubit.dart';
 import 'package:call_app/blocs/auth/auth_state.dart';
-import 'package:call_app/presentation/dashboard/dashboard_screen.dart';
+import 'package:call_app/presentation/dashboard/home.dart';
 import 'package:call_app/routes/app_routes.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -48,7 +49,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _next() {
-    if (_currentPage < 3) {
+    if (_currentPage < 0) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -76,26 +77,35 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           log('🚀 WelcomeScreen - Building with state: ${state.runtimeType}');
           // Show loading only briefly while checking auth
           if (state is AuthLoading && !_hasCheckedAuth) {
-            return Scaffold(
-              backgroundColor: AppColors.primaryColor,
-              body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Checking authentication...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+              child: Scaffold(
+                backgroundColor: AppColors.primaryColor,
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Checking authentication...',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           }
 
           if (state is AuthSuccess) {
-            return HomeScreen();
+            return DashboardScreen();
           }
           // Show onboarding for non-authenticated users
           return _buildOnboardingScreen();
@@ -164,151 +174,195 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.primaryColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                itemCount: pages.length,
-                itemBuilder: (context, index) {
-                  final page = pages[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
+    return Container(
+      decoration: const BoxDecoration(
+        // color: Color(0xFF0F172A),
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (_currentPage < 0) ...[
+                Align(
+                  alignment: Alignment.topRight,
+                  child: TextButton(
+                    onPressed: _skip,
+                    child: Text(
+                      "Skip",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        if (index == 0) const Spacer(),
-                        if (index > 0) ...[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              IconButton(
-                                onPressed: () {
-                                  _pageController.previousPage(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                  );
-                                },
-                                icon: const Icon(
-                                  Icons.arrow_back,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                '${index + 1} of ${pages.length}',
-                                style: TextStyle(
-                                  fontFamily: "Roboto",
-                                  color: Colors.white,
-                                  fontSize: 14.sp,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: (index + 1) / pages.length,
-                            backgroundColor: Color(0xFFE5E7EB),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF6366F1),
+                  ),
+                ),
+              ],
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  itemCount: pages.length,
+                  itemBuilder: (context, index) {
+                    final page = pages[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      child: Column(
+                        children: [
+                          // if (index == 0) const Spacer(),
+                          // if (index > 0) ...[
+                          //   Row(
+                          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //     children: [
+                          //       // IconButton(
+                          //       //   onPressed: () {
+                          //       //     _pageController.previousPage(
+                          //       //       duration: const Duration(
+                          //       //         milliseconds: 300,
+                          //       //       ),
+                          //       //       curve: Curves.easeInOut,
+                          //       //     );
+                          //       //   },
+                          //       //   icon: const Icon(
+                          //       //     Icons.arrow_back,
+                          //       //     color: Colors.white,
+                          //       //   ),
+                          //       // ),
+                          //       // Text(
+                          //       //   '${index + 1} of ${pages.length}',
+                          //       //   style: TextStyle(
+                          //       //     fontFamily: "Roboto",
+                          //       //     color: Colors.white,
+                          //       //     fontSize: 14.sp,
+                          //       //   ),
+                          //       // ),
+                          //     ],
+                          //   ),
+                          Spacer(),
+                          Center(
+                            child: SvgPicture.asset(
+                              page.icon,
+                              fit: BoxFit.contain,
                             ),
                           ),
-                          const Spacer(),
-                        ],
-                        Center(
-                          child: SvgPicture.asset(
-                            page.icon,
-                            fit: BoxFit.contain,
+                          const SizedBox(height: 32),
+                          Text(
+                            page.title,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.roboto(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 30.sp,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          page.title,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.roboto(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 30.sp,
-                            color: Colors.white,
+                          const SizedBox(height: 11),
+                          Text(
+                            page.description,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.roboto(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 18.sp,
+                              color: Colors.white.withOpacity(0.6),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 11),
-                        Text(
-                          page.description,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.roboto(
-                            fontWeight: FontWeight.w400,
-                            fontSize: 18.sp,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 50),
-                        if (page.bullets.isNotEmpty)
-                          Column(
-                            children: List.generate(page.bullets.length, (i) {
-                              bool isCircular = index == 1 || index == 2;
+                          const SizedBox(height: 50),
+                          if (page.bullets.isNotEmpty)
+                            Column(
+                              children: List.generate(page.bullets.length, (i) {
+                                bool isCircular = index == 1 || index == 2;
 
-                              double containerSize;
-                              if (index == 1) {
-                                containerSize = 35;
-                              } else if (index == 2) {
-                                containerSize = 45;
-                              } else if (index == 3) {
-                                containerSize = 52;
-                              } else {
-                                containerSize = 45;
-                              }
+                                double containerSize;
+                                if (index == 1) {
+                                  containerSize = 35;
+                                } else if (index == 2) {
+                                  containerSize = 45;
+                                } else if (index == 3) {
+                                  containerSize = 52;
+                                } else {
+                                  containerSize = 45;
+                                }
 
-                              double bottomPadding;
-                              if (index == 1) {
-                                bottomPadding = 16.0;
-                              } else if (index == 2) {
-                                bottomPadding = 28.0;
-                              } else if (index == 3) {
-                                bottomPadding = 28.0;
-                              } else {
-                                bottomPadding = 16.0;
-                              }
+                                double bottomPadding;
+                                if (index == 1) {
+                                  bottomPadding = 16.0;
+                                } else if (index == 2) {
+                                  bottomPadding = 28.0;
+                                } else if (index == 3) {
+                                  bottomPadding = 28.0;
+                                } else {
+                                  bottomPadding = 16.0;
+                                }
 
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: bottomPadding),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: containerSize,
-                                      height: containerSize,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: isCircular
-                                            ? BorderRadius.circular(999)
-                                            : BorderRadius.circular(12),
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: bottomPadding,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: containerSize,
+                                        height: containerSize,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: isCircular
+                                              ? BorderRadius.circular(999)
+                                              : BorderRadius.circular(12),
+                                        ),
+                                        child: SvgPicture.asset(
+                                          page.bulletIcons.length > i
+                                              ? page.bulletIcons[i]
+                                              : ImageConstant.callguard,
+                                          height: 30,
+                                          width: 30,
+                                        ),
                                       ),
-                                      child: SvgPicture.asset(
-                                        page.bulletIcons.length > i
-                                            ? page.bulletIcons[i]
-                                            : ImageConstant.callguard,
-                                        height: 30,
-                                        width: 30,
-                                      ),
-                                    ),
-                                    SizedBox(width: 16.w),
-                                    Expanded(
-                                      child:
-                                          page.bulletSubtitles.length > i &&
-                                              page.bulletSubtitles[i]
-                                                  .trim()
-                                                  .isNotEmpty
-                                          ? Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
+                                      SizedBox(width: 16.w),
+                                      Expanded(
+                                        child:
+                                            page.bulletSubtitles.length > i &&
+                                                page.bulletSubtitles[i]
+                                                    .trim()
+                                                    .isNotEmpty
+                                            ? Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    page.bullets[i],
+                                                    style: TextStyle(
+                                                      fontFamily: "Roboto",
+                                                      color: Colors.white,
+                                                      fontSize: 16.sp,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    page.bulletSubtitles[i],
+                                                    style: GoogleFonts.poppins(
+                                                      color: Colors.white,
+                                                      fontSize: 12.sp,
+                                                      fontWeight:
+                                                          FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
                                                   page.bullets[i],
                                                   style: TextStyle(
                                                     fontFamily: "Roboto",
@@ -317,46 +371,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
-                                                Text(
-                                                  page.bulletSubtitles[i],
-                                                  style: GoogleFonts.poppins(
-                                                    color: Colors.white,
-                                                    fontSize: 12.sp,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                              ],
-                                            )
-                                          : Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                page.bullets[i],
-                                                style: TextStyle(
-                                                  fontFamily: "Roboto",
-                                                  color: Colors.white,
-                                                  fontSize: 16.sp,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
                                               ),
-                                            ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        const Spacer(),
-                      ],
-                    ),
-                  );
-                },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          const Spacer(),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            if (_currentPage > 0) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              if (_currentPage < 1) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Row(
                       children: List.generate(
@@ -367,49 +398,64 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: _skip,
-                      child: Text(
-                        "Skip",
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+              ],
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        offset: Offset(0, 10),
+                        blurRadius: 15,
+                      ),
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        offset: Offset(0, 4),
+                        blurRadius: 6,
+                      ),
+                    ],
                   ),
-                  onPressed: _next,
-                  icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                  label: Text(
-                    _currentPage == 0 ? "Get Started" : "Continue",
-                    style: GoogleFonts.roboto(
-                      color: Colors.white,
-                      fontSize: 16.85.sp,
-                      fontWeight: FontWeight.w600,
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _next,
+                    icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                    label: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _currentPage == 0 ? "Get Started" : "Continue",
+                          style: GoogleFonts.roboto(
+                            // color: Colors.white,
+                            color: Color(0xFF0F172A),
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 5.w),
+                        Icon(
+                          CupertinoIcons.arrow_right,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -424,11 +470,12 @@ class DotIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: isActive ? 10 : 8,
-      height: isActive ? 10 : 8,
+      width: isActive ? 32 : 9,
+      height: isActive ? 9 : 9,
       decoration: BoxDecoration(
         color: isActive ? Colors.white : Colors.white38,
-        shape: BoxShape.circle,
+        // shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(100),
       ),
     );
   }

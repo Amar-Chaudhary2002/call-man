@@ -20,10 +20,12 @@ class OtpSent extends AuthState {
   final String message;
   final String verificationId;
   final String phoneNumber;
+  final int? resendToken;
 
   OtpSent({
     required this.message,
     required this.verificationId,
     required this.phoneNumber,
+    this.resendToken,
   });
 }
