@@ -1,133 +1,489 @@
-// main.dart - Fixed with proper overlay configuration
+// main.dart - Fixed version
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
-
+import 'dart:ui';
 import 'package:call_app/presentation/dashboard/call_event_service.dart';
-import 'package:call_app/presentation/dashboard/model/call_record_model.dart';
-import 'package:call_app/presentation/dashboard/widgets/call_tracking.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'presentation/dashboard/overlay_entity.dart' show overlayMain;
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:system_alert_window/system_alert_window.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import 'blocs/auth/auth_cubit.dart';
+import 'notification_utils.dart';
+import 'overlay_manager.dart';
 import 'routes/app_routes.dart';
 import 'core/theme.dart';
 
+// === Overlay isolate entry point ===
+@pragma("vm:entry-point")
+void overlayMain() {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Material(color: Colors.transparent, child: CallOverlayWidget()),
+  ));
+}
+
+class CallOverlayWidget extends StatefulWidget {
+  const CallOverlayWidget({Key? key}) : super(key: key);
+
+  @override
+  State<CallOverlayWidget> createState() => _CallOverlayWidgetState();
+}
+
+class _CallOverlayWidgetState extends State<CallOverlayWidget> {
+  String title = 'Call Status';
+  String subtitle = 'Initializing...';
+  String callState = 'idle';
+  String phoneNumber = '';
+  String currentTime = '';
+  Timer? _timeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Update time every second
+    _timeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        currentTime = DateTime.now().toString().substring(11, 19);
+      });
+    });
+
+    // Listen for messages from the app/service
+    SystemAlertWindow.overlayListener.listen((data) {
+      log("Overlay received data: $data");
+      if (data is Map && mounted) {
+        setState(() {
+          title = data['title']?.toString() ?? 'Call Status';
+          subtitle = data['subtitle']?.toString() ?? '';
+          callState = data['callState']?.toString() ?? 'idle';
+          phoneNumber = data['phoneNumber']?.toString() ?? '';
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _closeOverlay() async {
+    try {
+      // Inform the app that user closed the overlay
+      final sendPort = IsolateNameServer.lookupPortByName('overlay_to_app_port');
+      sendPort?.send({'action': 'overlay_closed_by_user'});
+
+      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+    } catch (e) {
+      log("Error closing overlay: $e");
+    }
+  }
+
+  Color _getCallStateColor() {
+    switch (callState.toLowerCase()) {
+      case 'ringing':
+      case 'incoming':
+        return Colors.blue;
+      // case 'active':
+      // case 'started':
+      //   return Colors.green;
+      case 'ended':
+      case 'disconnected':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  IconData _getCallStateIcon() {
+    switch (callState.toLowerCase()) {
+      case 'ringing':
+      case 'incoming':
+        return Icons.phone_in_talk;
+      case 'active':
+      case 'started':
+        return Icons.call;
+      case 'ended':
+      case 'disconnected':
+        return Icons.call_end;
+      default:
+        return Icons.phone;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stateColor = _getCallStateColor();
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 350, maxHeight: 200),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: stateColor, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with close button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(_getCallStateIcon(), color: stateColor, size: 20),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: stateColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _closeOverlay,
+                      borderRadius: BorderRadius.circular(15),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 18, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Phone number (if available)
+                if (phoneNumber.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: stateColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      phoneNumber,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Subtitle
+                if (subtitle.isNotEmpty) ...[
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Current time
+                Text(
+                  'Time: $currentTime',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// === Main App Setup ===
 Future<void> _initFirebase() async => Firebase.initializeApp();
 
+// Replace the permissions section in _ensurePermissions() method
 Future<bool> _ensurePermissions() async {
-  debugPrint('🔐 Requesting permissions...');
-  print('🔐 Requesting permissions...');
+  log('🔐 Requesting permissions...');
 
   if (!Platform.isAndroid) return true;
 
-  // Request all necessary permissions
-  final permissions = [
-    Permission.phone,
-    Permission.systemAlertWindow,
-    Permission.notification,
+  // Check phone permission first - use the correct permission constant
+  final phoneStatus = await Permission.phone.status;
+  if (phoneStatus.isGranted) {
+    log('📱 Phone permission already granted');
+  } else {
+    final phoneResult = await Permission.phone.request();
+    if (!phoneResult.isGranted) {
+      log('❌ Phone permission denied');
+      return false;
+    }
+  }
+
+  // Request notification permission (critical for Android 13+)
+  final notificationStatus = await Permission.notification.status;
+  if (!notificationStatus.isGranted) {
+    log('🔔 Requesting notification permission...');
+    final notificationResult = await Permission.notification.request();
+    if (!notificationResult.isGranted) {
+      log('❌ Notification permission denied - this will cause service issues');
+    }
+  }
+
+  // Request other permissions using the correct constants
+  final permissionsToRequest = [
+    Permission.ignoreBatteryOptimizations,
   ];
 
-  Map<Permission, PermissionStatus> statuses = await permissions.request();
+  // For Android, request additional call-related permissions
+  if (Platform.isAndroid) {
+    permissionsToRequest.addAll([
+      Permission.manageExternalStorage, // For call log access
+      Permission.accessNotificationPolicy, // For call state access
+    ]);
+  }
+
+  Map<Permission, PermissionStatus> statuses = await permissionsToRequest.request();
 
   // Log permission statuses
   statuses.forEach((permission, status) {
-    debugPrint('Permission ${permission.toString()}: ${status.toString()}');
-    print('Permission ${permission.toString()}: ${status.toString()}');
+    log('Permission ${permission.toString()}: ${status.toString()}');
   });
 
-  // Check overlay permission separately
-  if (Platform.isAndroid) {
-    final overlayPermission = await FlutterOverlayWindow.isPermissionGranted();
-    debugPrint('Overlay permission granted: $overlayPermission');
-    print('Overlay permission granted: $overlayPermission');
+  // Check and request system alert window permission specifically
+  final overlayPermission = await SystemAlertWindow.checkPermissions();
+  log('System overlay permission status: $overlayPermission');
 
-    if (!overlayPermission) {
-      debugPrint('⚠️ Requesting overlay permission...');
-      print('⚠️ Requesting overlay permission...');
-      final granted = await FlutterOverlayWindow.requestPermission();
-      debugPrint('Overlay permission after request: $granted');
-      print('Overlay permission after request: $granted');
+  if (overlayPermission == null || !overlayPermission) {
+    log('⚠️ Requesting system overlay permission...');
+    try {
+      final granted = await SystemAlertWindow.requestPermissions();
+      log('System overlay permission after request: $granted');
+
+      if (granted == null || !granted) {
+        log('❌ System overlay permission denied');
+        return false;
+      }
+    } catch (e) {
+      log('❌ Error requesting system overlay permission: $e');
+      return false;
     }
   }
 
-  return statuses[Permission.phone]?.isGranted == true &&
-      statuses[Permission.systemAlertWindow]?.isGranted == true;
+  final phoneGranted = await Permission.phone.status.then((s) => s.isGranted);
+  final overlayGranted = overlayPermission == true;
+  final notificationGranted = await Permission.notification.status.then((s) => s.isGranted);
+
+  log('Final permissions - Phone: $phoneGranted, Overlay: $overlayGranted, Notifications: $notificationGranted');
+  return phoneGranted && overlayGranted;
 }
 
-// Background service entry point
+Future<void> _showPermissionEducationDialog(BuildContext context) async {
+  return showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.security, color: Colors.orange),
+          SizedBox(width: 8),
+          Flexible(child: Text('Permissions Required')),
+        ],
+      ),
+      content: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('For call tracking and overlay features to work properly, please enable:'),
+          SizedBox(height: 12),
+          Text('1. Phone permissions - to detect call states'),
+          Text('2. Notifications - for background service alerts'),
+          Text('3. Display over other apps - for call overlays'),
+          Text('4. Background activity - keep service running'),
+          Text('5. Disable battery optimization - prevent killing'),
+          SizedBox(height: 8),
+          Text('(MIUI users: Enable "Display pop-up windows while running in background")'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Later'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            await _ensurePermissions();
+          },
+          child: const Text('Grant Permissions'),
+        ),
+      ],
+    ),
+  );
+}
+
+// FIXED: Background service with proper notification handling
 @pragma('vm:entry-point')
 void onBackgroundServiceStart(ServiceInstance service) async {
-  log('🔄 Background service started');
+  log('🔄 Background service started in isolate');
 
-  // CRITICAL: Start foreground notification immediately for Android
+  // CRITICAL: Initialize plugins in background isolate
+  DartPluginRegistrant.ensureInitialized();
+
+  // Initialize notification channel
+  await NotificationUtils.initialize();
+
+  // ANDROID-SPECIFIC: Handle Android services with proper error handling
   if (service is AndroidServiceInstance) {
-    service.setForegroundNotificationInfo(
-      title: "Call Tracking Active",
-      content: "Initializing call monitoring...",
-    );
-    log('✅ Foreground notification set immediately');
-  }
+    log('📱 Configuring Android service...');
 
-  try {
-    // Initialize call state monitoring
-    final callService = CallTrackingService.instance;
-    await callService.initialize();
+    try {
+      // Start as background service first
+      service.setAsBackgroundService();
+      log('✅ Set as background service');
 
-    // Start monitoring call states
-    await callService.startCallStateMonitoring();
-    log('✅ Call monitoring initialized');
+      // Wait a moment before attempting foreground
+      await Future.delayed(const Duration(seconds: 2));
 
-    // Update notification
-    if (service is AndroidServiceInstance) {
+      // Try to set as foreground with proper notification
       service.setForegroundNotificationInfo(
-        title: "Call Tracking Active",
+        title: "Call Tracking",
         content: "Monitoring calls in background",
       );
+
+      service.setAsForegroundService();
+      log('✅ Successfully set as foreground service');
+
+    } catch (e) {
+      log('❌ Foreground service failed, continuing as background: $e');
+      // Continue as background service if foreground fails
+      service.setAsBackgroundService();
     }
-  } catch (e) {
-    log('❌ Error in background service: $e');
-    // Still keep the service running with error notification
-    if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: "Call Tracking Error",
-        content: "Service running but monitoring failed",
-      );
+
+    // Set up service event listeners with error handling
+    try {
+      service.on('setAsBackground').listen((event) {
+        try {
+          service.setAsBackgroundService();
+          log('📢 Service set to background on request');
+        } catch (e) {
+          log('❌ Error setting background on request: $e');
+        }
+      });
+
+      service.on('setAsForeground').listen((event) {
+        try {
+          service.setAsForegroundService();
+          log('📢 Service set to foreground on request');
+        } catch (e) {
+          log('❌ Error setting foreground on request: $e');
+        }
+      });
+    } catch (e) {
+      log('❌ Error setting up service listeners: $e');
     }
   }
 
-  service.on('stopService').listen((event) {
+  // Set up port communication
+  try {
+    OverlayManager.setupBackgroundPorts();
+    log('✅ Background ports setup complete');
+  } catch (e) {
+    log('❌ Error setting up ports: $e');
+  }
+
+  // Initialize call tracking with proper delay and error handling
+  try {
+    log('⏳ Waiting before initializing call tracking...');
+    await Future.delayed(const Duration(seconds: 3));
+
+    final callService = CallEventService();
+    await callService.init();
+    log('✅ Call monitoring initialized in background service');
+
+    // Listen for overlay close requests
+    CallEventService.onOverlayCloseRequest = () async {
+      try {
+        await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+        log('✅ Overlay closed from background service');
+      } catch (e) {
+        log('❌ Error closing overlay from background: $e');
+      }
+    };
+
+  } catch (e) {
+    log('❌ Error initializing call service in background: $e');
+  }
+
+  // Handle service stop
+  service.on('stopService').listen((event) async {
     log('🛑 Stopping background service');
     try {
-      CallTrackingService.instance.stopCallStateMonitoring();
+      await CallEventService.dispose();
+      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+      OverlayManager.cleanup();
     } catch (e) {
-      log('Error stopping call monitoring: $e');
+      log('Error during service cleanup: $e');
     }
     service.stopSelf();
   });
 
-  // Keep service alive and update notification periodically
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
+  // Keep service alive with periodic updates
+  Timer.periodic(const Duration(minutes: 15), (timer) async {
     if (service is AndroidServiceInstance) {
       try {
+        final now = DateTime.now().toString().substring(11, 19);
         service.setForegroundNotificationInfo(
           title: "Call Tracking Active",
-          content: "Last update: ${DateTime.now().toString().substring(11, 19)}",
+          content: "Heartbeat: $now",
         );
       } catch (e) {
-        log('Error updating notification: $e');
+        log('Error in periodic notification update: $e');
       }
     }
   });
 }
 
-Future<void> _initBackgroundService({required bool useForeground}) async {
-  log('🚀 Initializing background service...');
+// FIXED: Background service configuration
+Future<void> _initBackgroundService() async {
+  log('🚀 Initializing background service configuration...');
 
   final service = FlutterBackgroundService();
 
@@ -135,122 +491,131 @@ Future<void> _initBackgroundService({required bool useForeground}) async {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onBackgroundServiceStart,
-        autoStart: true,
-        isForegroundMode: true, // Always use foreground mode for stability
-        notificationChannelId: 'call_tracking_channel',
+        autoStart: false, // Manual start only
+        isForegroundMode: true,
+        notificationChannelId: 'call_tracking_service_channel',
+        // notificationChannelName: 'Call Tracking Service',
+        // notificationChannelDescription: 'Monitors incoming and outgoing calls',
         initialNotificationTitle: 'Call Tracking Service',
-        initialNotificationContent: 'Starting call monitoring service...',
-        foregroundServiceNotificationId: 888,
+        initialNotificationContent: 'Preparing to monitor calls...',
+        foregroundServiceNotificationId: 999, // Unique ID
+        autoStartOnBoot: false, // Prevent auto-start issues
       ),
       iosConfiguration: IosConfiguration(
-        autoStart: true,
+        autoStart: false,
         onForeground: onBackgroundServiceStart,
-        // onBackground: onBackgroundServiceStart,
       ),
     );
 
-    // Add small delay before starting service
-    await Future.delayed(const Duration(milliseconds: 500));
+    log('✅ Background service configured successfully');
 
-    final isRunning = await service.isRunning();
-    if (!isRunning) {
-      await service.startService();
-      log('✅ Background service started');
+    // Test service configuration
+    final isConfigured = await service.isRunning();
+    log('🔍 Service configuration test - IsRunning: $isConfigured');
+
+  } catch (e) {
+    log('❌ Failed to configure background service: $e');
+    // Don't rethrow - let the app continue without background service
+  }
+}
+
+Future<void> _startBackgroundService() async {
+  log('🚀 Starting background service...');
+
+  try {
+    final service = FlutterBackgroundService();
+
+    // Check current status
+    final isCurrentlyRunning = await service.isRunning();
+    log('📊 Current service status: $isCurrentlyRunning');
+
+    if (!isCurrentlyRunning) {
+      log('🔄 Service not running, starting now...');
+
+      // Give system time
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      final startResult = await service.startService();
+      log('📋 Service start result: $startResult');
+
+      if (startResult) {
+        log('✅ Background service started successfully');
+
+        // Verify startup with multiple checks
+        for (int i = 0; i < 3; i++) {
+          await Future.delayed(const Duration(seconds: 2));
+          final isNowRunning = await service.isRunning();
+          log('🔍 Service verification check ${i + 1}: $isNowRunning');
+
+          if (isNowRunning) {
+            log('✅ Service verified running after ${(i + 1) * 2} seconds');
+            break;
+          }
+        }
+      } else {
+        log('❌ Service start returned false');
+      }
     } else {
       log('✅ Background service already running');
     }
 
   } catch (e) {
-    log('❌ Failed to initialize background service: $e');
-    // Try to start without foreground mode as fallback
-    try {
-      await service.configure(
-        androidConfiguration: AndroidConfiguration(
-          onStart: onBackgroundServiceStart,
-          autoStart: false,
-          isForegroundMode: false,
-          notificationChannelId: 'call_tracking_fallback',
-          initialNotificationTitle: 'Call Tracking (Fallback)',
-          initialNotificationContent: 'Running in background mode',
-          foregroundServiceNotificationId: 889,
-        ),
-        iosConfiguration: IosConfiguration(
-          autoStart: true,
-          onForeground: onBackgroundServiceStart,
-        ),
-      );
-      await service.startService();
-      log('✅ Background service started in fallback mode');
-    } catch (fallbackError) {
-      log('❌ Fallback background service also failed: $fallbackError');
-    }
+    log('❌ Exception during service startup: $e');
+    log('🔄 Service may still work despite this error');
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  debugPrint('🚀 App starting...');
-  print('🚀 App starting...'); // Use both print and debugPrint
+  log('🚀 App starting...');
 
+  // ENHANCED: Better error handling with specific error filtering
   FlutterError.onError = (details) {
-    if (details.exception.toString().contains('GraphicBuffer')) {
-      print('Non-critical graphics error: ${details.exception}');
+    final msg = details.exception.toString();
+
+    // Filter out known non-fatal errors
+    final nonFatalErrors = [
+      'GraphicBuffer', 'qdgralloc', 'AdrenoUtils', 'Gralloc4',
+      'AHardwareBuffer', 'format 56', 'Unknown Format',
+      'AccessibilityNodeInfo', 'AccessibilityRecord', 'LongArray',
+      'incremental_prop', 'miuilog', 'data_log_file'
+    ];
+
+    if (nonFatalErrors.any((error) => msg.contains(error))) {
+      log('Non-fatal system warning: ${details.exception}');
       return;
     }
+
+    // Log actual Flutter errors
+    log('Flutter Error: ${details.exception}');
+    log('Stack trace: ${details.stack}');
     FlutterError.presentError(details);
   };
 
-  await _initFirebase();
-  debugPrint('✅ Firebase initialized');
-  print('✅ Firebase initialized');
-
-  final permissionsGranted = await _ensurePermissions();
-  debugPrint('Permissions granted: $permissionsGranted');
-  print('Permissions granted: $permissionsGranted');
-
-  // TEMPORARILY DISABLE background service to fix crashes
-  // TODO: Re-enable once notification channels are properly configured
-  // await _initBackgroundService(useForeground: true);
-  debugPrint('⚠️ Background service disabled temporarily');
-  print('⚠️ Background service disabled temporarily');
-
-  // Initialize call tracking service directly in main app
   try {
-    debugPrint('🔄 Initializing call tracking service...');
-    print('🔄 Initializing call tracking service...');
+    // Initialize Firebase
+    await _initFirebase();
+    log('✅ Firebase initialized');
 
-    final callService = CallTrackingService.instance;
-    await callService.initialize();
+    // Initialize notification channel
+    await NotificationUtils.initialize();
+    log('✅ Notification channel initialized');
 
-    debugPrint('🔄 Starting call state monitoring...');
-    print('🔄 Starting call state monitoring...');
+    // Initialize background service configuration
+    await _initBackgroundService();
+    log('✅ Background service configured');
 
-    await callService.startCallStateMonitoring();
+    // Set up overlay manager
+    OverlayManager.initialize();
+    log('✅ Overlay manager initialized');
 
-    debugPrint('✅ Call tracking initialized in main app');
-    print('✅ Call tracking initialized in main app');
-
-    // Test overlay immediately
-    debugPrint('🧪 Testing overlay immediately...');
-    print('🧪 Testing overlay immediately...');
-    _testOverlayImmediately();
+    log('🎉 App initialization completed successfully');
 
   } catch (e) {
-    debugPrint('❌ Failed to initialize call tracking: $e');
-    print('❌ Failed to initialize call tracking: $e');
+    log('❌ Critical error during app initialization: $e');
+    // Continue anyway - app might still work partially
   }
-
-  FlutterError.onError = (FlutterErrorDetails details) {
-    final msg = details.exception.toString();
-    if (msg.contains('GraphicBuffer') || msg.contains('qdgralloc')) {
-      debugPrint('Graphics error (non-fatal): ${details.exception}');
-      return;
-    }
-    debugPrint('Flutter Error: ${details.exception}');
-    print('Flutter Error: ${details.exception}');
-    FlutterError.presentError(details);
-  };
 
   runApp(
     BlocProvider(
@@ -260,95 +625,6 @@ void main() async {
   );
 }
 
-// Test overlay function that runs immediately - FIXED VERSION
-Future<void> _testOverlayImmediately() async {
-  // Wait a bit for app to initialize
-  await Future.delayed(const Duration(seconds: 2));
-
-  try {
-    debugPrint('🔍 Checking overlay permission...');
-    print('🔍 Checking overlay permission...');
-
-    final hasPermission = await FlutterOverlayWindow.isPermissionGranted();
-    debugPrint('Overlay permission granted: $hasPermission');
-    print('Overlay permission granted: $hasPermission');
-
-    if (!hasPermission) {
-      debugPrint('⚠️ Requesting overlay permission...');
-      print('⚠️ Requesting overlay permission...');
-
-      final granted = await FlutterOverlayWindow.requestPermission();
-      debugPrint('Overlay permission after request: $granted');
-      print('Overlay permission after request: $granted');
-
-      if (!granted!) {
-        debugPrint('❌ Overlay permission denied by user');
-        print('❌ Overlay permission denied by user');
-        return;
-      }
-    }
-
-    debugPrint('🔄 Attempting to show overlay...');
-    print('🔄 Attempting to show overlay...');
-
-    // Close any existing overlay first
-    try {
-      if (await FlutterOverlayWindow.isActive()) {
-        await FlutterOverlayWindow.closeOverlay();
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      debugPrint('Error closing existing overlay: $e');
-      print('Error closing existing overlay: $e');
-    }
-
-    // FIXED: Show overlay with correct parameters
-    await FlutterOverlayWindow.showOverlay(
-      enableDrag: true,
-      overlayTitle: 'Test Overlay',
-      overlayContent: 'Testing overlay on startup',
-      flag: OverlayFlag.defaultFlag,
-      alignment: OverlayAlignment.topCenter,
-      visibility: NotificationVisibility.visibilityPublic,
-      positionGravity: PositionGravity.auto,
-      height: 250,
-      width: WindowSize.matchParent,
-    );
-
-    // Wait a moment for overlay to initialize
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    debugPrint('📡 Sending data to overlay...');
-    print('📡 Sending data to overlay...');
-
-    await FlutterOverlayWindow.shareData({
-      'title': 'Startup Test',
-      'subtitle': 'App started successfully!\nTime: ${DateTime.now().toString().substring(11, 19)}',
-      'callState': 'test',
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    });
-
-    debugPrint('✅ Test overlay should be displayed now!');
-    print('✅ Test overlay should be displayed now!');
-
-    // Auto-hide after 10 seconds
-    Future.delayed(const Duration(seconds: 10), () async {
-      try {
-        await FlutterOverlayWindow.closeOverlay();
-        debugPrint('🚫 Test overlay closed automatically');
-        print('🚫 Test overlay closed automatically');
-      } catch (e) {
-        debugPrint('Error closing test overlay: $e');
-        print('Error closing test overlay: $e');
-      }
-    });
-
-  } catch (e) {
-    debugPrint('❌ Failed to show test overlay: $e');
-    print('❌ Failed to show test overlay: $e');
-  }
-}
-
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -356,128 +632,183 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _permissionsGranted = false;
+  bool _serviceInitialized = false;
+  String _initStatus = 'Initializing...';
+
   @override
   void initState() {
     super.initState();
-    _testCallMonitoring();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeApp();
   }
 
-  void _testCallMonitoring() {
-    debugPrint('🔄 Setting up call monitoring test...');
-    print('🔄 Setting up call monitoring test...');
-
-    // Listen to call state changes for testing
-    CallTrackingService.instance.callStateStream.listen((callRecord) {
-      debugPrint('📞 Call state changed: ${callRecord.phoneNumber} - ${callRecord.state}');
-      print('📞 Call state changed: ${callRecord.phoneNumber} - ${callRecord.state}');
-
-      // Test overlay display
-      _showTestOverlay(callRecord);
-    });
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    OverlayManager.cleanup();
+    super.dispose();
   }
 
-  // FIXED: Show test overlay with correct parameters
-  Future<void> _showTestOverlay(CallRecord callRecord) async {
-    try {
-      debugPrint('🔔 Attempting to show call overlay...');
-      print('🔔 Attempting to show call overlay...');
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    log("App lifecycle state: $state");
 
-      final hasPermission = await FlutterOverlayWindow.isPermissionGranted();
-      if (!hasPermission) {
-        debugPrint('⚠️ Overlay permission not granted');
-        print('⚠️ Overlay permission not granted');
-        return;
-      }
-
-      // Close existing overlay first
-      if (await FlutterOverlayWindow.isActive()) {
-        await FlutterOverlayWindow.closeOverlay();
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-
-      // FIXED: Show test overlay with correct parameters
-      await FlutterOverlayWindow.showOverlay(
-        enableDrag: true,
-        overlayTitle: 'Call State Change',
-        overlayContent: 'Number: ${callRecord.phoneNumber}\nState: ${callRecord.state}',
-        flag: OverlayFlag.defaultFlag,
-        alignment: OverlayAlignment.topCenter,
-        visibility: NotificationVisibility.visibilityPublic,
-        positionGravity: PositionGravity.auto,
-        height: 200,
-        width: WindowSize.matchParent,
-      );
-
-      // Wait for overlay to initialize
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      await FlutterOverlayWindow.shareData({
-        'title': 'Call State Change',
-        'subtitle': 'Number: ${callRecord.phoneNumber}\nState: ${callRecord.state}',
-        'callState': callRecord.state.toString(),
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      debugPrint('✅ Test overlay displayed for call: ${callRecord.phoneNumber}');
-      print('✅ Test overlay displayed for call: ${callRecord.phoneNumber}');
-
-      // Auto-hide after 3 seconds for testing
-      Future.delayed(const Duration(seconds: 3), () {
-        FlutterOverlayWindow.closeOverlay();
-      });
-    } catch (e) {
-      debugPrint('❌ Failed to show test overlay: $e');
-      print('❌ Failed to show test overlay: $e');
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        log('App going background - service continues running');
+        break;
+      case AppLifecycleState.resumed:
+        log('App resumed - checking service status');
+        _checkServiceStatus();
+        break;
+      default:
+        break;
     }
   }
 
-  // FIXED: Test method to manually trigger overlay
-  Future<void> _testOverlayManually() async {
-    log('🧪 Testing overlay manually...');
+  Future<void> _initializeApp() async {
+    setState(() {
+      _initStatus = 'Checking permissions...';
+    });
 
+    // Show permission education first if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final hasPermissions = await _checkExistingPermissions();
+      if (!hasPermissions && mounted) {
+        await _showPermissionEducationDialog(context);
+      }
+      await _requestPermissionsAndInitialize();
+    });
+  }
+
+  Future<bool> _checkExistingPermissions() async {
     try {
-      final hasPermission = await FlutterOverlayWindow.isPermissionGranted();
-      if (!hasPermission) {
-        log('⚠️ Requesting overlay permission...');
-        final granted = await FlutterOverlayWindow.requestPermission();
-        if (!granted!) {
-          log('❌ Overlay permission denied');
-          return;
+      final phoneStatus = await Permission.phone.status;
+      final notificationStatus = await Permission.notification.status;
+      final overlayStatus = await SystemAlertWindow.checkPermissions();
+
+      log('Existing permissions - Phone: ${phoneStatus.isGranted}, Notifications: ${notificationStatus.isGranted}, Overlay: $overlayStatus');
+
+      return phoneStatus.isGranted && (overlayStatus == true) && notificationStatus.isGranted;
+    } catch (e) {
+      log('Error checking existing permissions: $e');
+      return false;
+    }
+  }
+
+  Future<void> _requestPermissionsAndInitialize() async {
+    try {
+      setState(() {
+        _initStatus = 'Requesting permissions...';
+      });
+
+      // Request all permissions
+      final permissionsGranted = await _ensurePermissions();
+      setState(() {
+        _permissionsGranted = permissionsGranted;
+        _initStatus = permissionsGranted ? 'Starting services...' : 'Missing permissions';
+      });
+
+      if (permissionsGranted) {
+        // Start background service with better error handling
+        setState(() {
+          _initStatus = 'Initializing background service...';
+        });
+
+        await _startBackgroundService();
+
+        setState(() {
+          _initStatus = 'Setting up call tracking...';
+        });
+
+        // Initialize call tracking in foreground too
+        await _initializeForegroundCallTracking();
+
+        setState(() {
+          _serviceInitialized = true;
+          _initStatus = 'Ready!';
+        });
+
+        log('✅ App fully initialized with permissions and services');
+
+        // Test overlay after everything is ready
+        Future.delayed(const Duration(seconds: 8), () {
+          if (mounted) _testOverlay();
+        });
+      } else {
+        log('❌ App initialized but missing critical permissions');
+        setState(() {
+          _initStatus = 'Missing critical permissions - limited functionality';
+        });
+      }
+    } catch (e) {
+      log('❌ Error during app initialization: $e');
+      setState(() {
+        _initStatus = 'Initialization error: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _initializeForegroundCallTracking() async {
+    try {
+      final callService = CallEventService();
+      await callService.init();
+      log('✅ Foreground call tracking initialized');
+    } catch (e) {
+      log('❌ Failed to initialize foreground call tracking: $e');
+    }
+  }
+
+  Future<void> _checkServiceStatus() async {
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      log('🔍 Background service status check: $isRunning');
+
+      if (!isRunning && _permissionsGranted) {
+        log('🔄 Service not running, attempting restart...');
+        setState(() {
+          _initStatus = 'Restarting service...';
+        });
+
+        await _startBackgroundService();
+
+        if (mounted) {
+          setState(() {
+            _initStatus = 'Service restarted';
+          });
         }
       }
+    } catch (e) {
+      log('Error checking service status: $e');
+    }
+  }
 
-      // FIXED: Show overlay with correct parameters
-      await FlutterOverlayWindow.showOverlay(
-        enableDrag: true,
-        overlayTitle: 'Test Overlay',
-        overlayContent: 'This is a test overlay',
-        flag: OverlayFlag.defaultFlag,
-        alignment: OverlayAlignment.topCenter,
-        visibility: NotificationVisibility.visibilityPublic,
-        positionGravity: PositionGravity.auto,
-        height: 200,
-        width: WindowSize.matchParent,
+  Future<void> _testOverlay() async {
+    if (!_permissionsGranted) {
+      log('❌ Cannot test overlay - permissions not granted');
+      return;
+    }
+
+    try {
+      log('🧪 Testing overlay system...');
+
+      final success = await OverlayManager.showTestOverlay(
+        message: 'System Test - All services initialized successfully!',
+        autoCloseDuration: const Duration(seconds: 6),
       );
 
-      // Wait for overlay to initialize
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      await FlutterOverlayWindow.shareData({
-        'title': 'Test Overlay',
-        'subtitle': 'Manual test overlay\nTime: ${DateTime.now().toString()}',
-        'callState': 'test',
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      log('✅ Manual test overlay displayed');
-
-      // Auto-hide after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
-        FlutterOverlayWindow.closeOverlay();
-      });
+      if (success) {
+        log('✅ Test overlay displayed successfully');
+      } else {
+        log('❌ Failed to display test overlay');
+      }
     } catch (e) {
-      log('❌ Failed to show manual test overlay: $e');
+      log('❌ Failed to show test overlay: $e');
     }
   }
 
@@ -494,8 +825,74 @@ class _MyAppState extends State<MyApp> {
           initialRoute: '/',
           routes: AppRoutes.routes,
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            // Show initialization status overlay
+            return Stack(
+              children: [
+                child ?? const SizedBox.shrink(),
+                if (!_permissionsGranted || !_serviceInitialized)
+                  _buildInitializationOverlay(),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildInitializationOverlay() {
+    return Material(
+      color: Colors.black54,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_permissionsGranted && !_serviceInitialized)
+                const CircularProgressIndicator()
+              else if (!_permissionsGranted)
+                const Icon(Icons.security, size: 48, color: Colors.orange)
+              else
+                const CircularProgressIndicator(),
+
+              const SizedBox(height: 16),
+
+              Text(
+                _initStatus,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 12),
+
+              if (!_permissionsGranted) ...[
+                const Text(
+                  'This app needs phone and notification permissions to work properly.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: _requestPermissionsAndInitialize,
+                  child: const Text('Grant Permissions'),
+                ),
+              ] else if (_serviceInitialized) ...[
+                const Text(
+                  'Initialization complete!',
+                  style: TextStyle(fontSize: 14, color: Colors.green),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

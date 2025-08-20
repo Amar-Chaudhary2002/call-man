@@ -1,78 +1,27 @@
+<!-- android/app/src/main/AndroidManifest.xml -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ===== Permissions ===== -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Call state / placing calls -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
-
-    <!-- Read call logs (ONLY if you use CallLog.get in Dart) -->
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-
-    <!-- Foreground service (for background listener/overlay service) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Android 14+ specific FGS type -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
-
-    <!-- Overlay (draw over other apps) -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Android 13+ runtime notifications -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-
-
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
-        android:label="call_app"
         android:name="${applicationName}"
+        android:label="call_app"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:theme="@style/LaunchTheme"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:requestLegacyExternalStorage="true"
+        android:stopWithTask="false">
 
-        <!-- Connection service for CallKeep -->
-        <service
-            android:name="io.wazo.callkeep.VoiceConnectionService"
-            android:label="call-man"
-            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.telecom.ConnectionService" />
-            </intent-filter>
-        </service>
-
-        <!-- REMOVE Huawei CallKit receiver (it caused ClassNotFoundException) -->
-        <!-- If you actually need it, add the Huawei CallKit Flutter plugin and restore this block. -->
-
-        <!-- Overlay service used by flutter_overlay_window plugin -->
-        <!-- AndroidManifest.xml, inside <application> -->
-        <service
-            android:name="flutter_overlay_window.OverlayService"
-            android:exported="false"
-            android:foregroundServiceType="systemExempted"
-            android:enabled="true" />
-
-        <activity
-            android:name="flutter_overlay_window.OverlayActivity"
-            android:theme="@style/Theme.Transparent"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTop" />
-
-        <!-- Optional: set a stable small icon for foreground notifications (create @drawable/ic_stat_callman) -->
-        <!--
-        <meta-data
-            android:name="flutter_background_service_notification_icon"
-            android:resource="@drawable/ic_stat_callman" />
-        -->
+        <!-- Remove the problematic service override -->
+        <!-- Let the plugin handle its own service configuration -->
 
         <activity
             android:name=".MainActivity"
@@ -83,33 +32,18 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Standard launcher -->
-            <intent-filter android:priority="0">
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!-- Handle tel: links (optional) -->
-            <intent-filter android:priority="0">
-                <action android:name="android.intent.action.DIAL" />
-                <data android:scheme="tel" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
+                android:resource="@style/NormalTheme"/>
         </activity>
 
         <meta-data
             android:name="flutterEmbedding"
-            android:value="2" />
+            android:value="2"/>
     </application>
-
-    <!-- Queries -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
-        </intent>
-    </queries>
 </manifest>
