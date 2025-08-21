@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
+import 'package:call_app/permission_manager.dart';
 import 'package:call_app/presentation/dashboard/call_event_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,7 +13,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:system_alert_window/system_alert_window.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'blocs/auth/auth_cubit.dart';
 import 'notification_utils.dart';
@@ -23,12 +23,15 @@ import 'core/theme.dart';
 // === Overlay isolate entry point ===
 @pragma("vm:entry-point")
 void overlayMain() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: Material(color: Colors.transparent, child: CallOverlayWidget()),
-  ));
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Material(color: Colors.transparent, child: CallOverlayWidget()),
+    ),
+  );
 }
 
+// Enhanced overlay widget with app launch capability
 class CallOverlayWidget extends StatefulWidget {
   const CallOverlayWidget({Key? key}) : super(key: key);
 
@@ -78,13 +81,37 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
 
   Future<void> _closeOverlay() async {
     try {
-      // Inform the app that user closed the overlay
-      final sendPort = IsolateNameServer.lookupPortByName('overlay_to_app_port');
+      final sendPort = IsolateNameServer.lookupPortByName(
+        'overlay_to_app_port',
+      );
       sendPort?.send({'action': 'overlay_closed_by_user'});
-
-      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+      await SystemAlertWindow.closeSystemWindow(
+        prefMode: SystemWindowPrefMode.OVERLAY,
+      );
     } catch (e) {
       log("Error closing overlay: $e");
+    }
+  }
+
+  // NEW: Launch main app with call interaction screen
+  Future<void> _openCallInteraction() async {
+    try {
+      // Send message to open call interaction screen
+      final sendPort = IsolateNameServer.lookupPortByName(
+        'overlay_to_app_port',
+      );
+      sendPort?.send({
+        'action': 'open_call_interaction',
+        'phoneNumber': phoneNumber,
+        'callState': callState,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // Close overlay after launching app
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _closeOverlay();
+    } catch (e) {
+      log("Error opening call interaction: $e");
     }
   }
 
@@ -93,9 +120,6 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
       case 'ringing':
       case 'incoming':
         return Colors.blue;
-      // case 'active':
-      // case 'started':
-      //   return Colors.green;
       case 'ended':
       case 'disconnected':
         return Colors.red;
@@ -128,7 +152,7 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
       child: Material(
         color: Colors.transparent,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 350, maxHeight: 200),
+          constraints: const BoxConstraints(maxWidth: 350, maxHeight: 450),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -153,7 +177,11 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
                     Expanded(
                       child: Row(
                         children: [
-                          Icon(_getCallStateIcon(), color: stateColor, size: 20),
+                          Icon(
+                            _getCallStateIcon(),
+                            color: stateColor,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
@@ -182,11 +210,14 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
                 ),
                 const SizedBox(height: 12),
 
-                // Phone number (if available)
+                // Phone number
                 if (phoneNumber.isNotEmpty) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: stateColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -208,10 +239,7 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
                 if (subtitle.isNotEmpty) ...[
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -222,10 +250,55 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
                 // Current time
                 Text(
                   'Time: $currentTime',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Action Buttons Row
+                Row(
+                  children: [
+                    // Open Call Interaction Button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _openCallInteraction,
+                        icon: const Icon(Icons.edit_note, size: 16),
+                        label: const Text(
+                          'Details',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Quick Close Button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _closeOverlay,
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text(
+                          'Dismiss',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[300],
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -239,17 +312,30 @@ class _CallOverlayWidgetState extends State<CallOverlayWidget> {
 // === Main App Setup ===
 Future<void> _initFirebase() async => Firebase.initializeApp();
 
-// Replace the permissions section in _ensurePermissions() method
 Future<bool> _ensurePermissions() async {
-  log('🔐 Requesting permissions...');
+  log('🔐 Checking permissions...');
 
   if (!Platform.isAndroid) return true;
 
-  // Check phone permission first - use the correct permission constant
+  // First check if we already have permissions
   final phoneStatus = await Permission.phone.status;
-  if (phoneStatus.isGranted) {
-    log('📱 Phone permission already granted');
-  } else {
+  final notificationStatus = await Permission.notification.status;
+  final overlayPermission = await SystemAlertWindow.checkPermissions();
+
+  final allGranted = phoneStatus.isGranted &&
+      notificationStatus.isGranted &&
+      (overlayPermission == true);
+
+  if (allGranted) {
+    log('✅ All permissions already granted');
+    await PermissionManager.setPermissionsGranted(true);
+    return true;
+  }
+
+  log('⚠️ Some permissions missing, requesting...');
+
+  // Request missing permissions
+  if (!phoneStatus.isGranted) {
     final phoneResult = await Permission.phone.request();
     if (!phoneResult.isGranted) {
       log('❌ Phone permission denied');
@@ -257,47 +343,18 @@ Future<bool> _ensurePermissions() async {
     }
   }
 
-  // Request notification permission (critical for Android 13+)
-  final notificationStatus = await Permission.notification.status;
   if (!notificationStatus.isGranted) {
-    log('🔔 Requesting notification permission...');
     final notificationResult = await Permission.notification.request();
     if (!notificationResult.isGranted) {
-      log('❌ Notification permission denied - this will cause service issues');
+      log('❌ Notification permission denied');
     }
   }
 
-  // Request other permissions using the correct constants
-  final permissionsToRequest = [
-    Permission.ignoreBatteryOptimizations,
-  ];
-
-  // For Android, request additional call-related permissions
-  if (Platform.isAndroid) {
-    permissionsToRequest.addAll([
-      Permission.manageExternalStorage, // For call log access
-      Permission.accessNotificationPolicy, // For call state access
-    ]);
-  }
-
-  Map<Permission, PermissionStatus> statuses = await permissionsToRequest.request();
-
-  // Log permission statuses
-  statuses.forEach((permission, status) {
-    log('Permission ${permission.toString()}: ${status.toString()}');
-  });
-
-  // Check and request system alert window permission specifically
-  final overlayPermission = await SystemAlertWindow.checkPermissions();
-  log('System overlay permission status: $overlayPermission');
-
-  if (overlayPermission == null || !overlayPermission) {
-    log('⚠️ Requesting system overlay permission...');
+  // Handle overlay permission separately as it requires special handling
+  if (overlayPermission != true) {
     try {
       final granted = await SystemAlertWindow.requestPermissions();
-      log('System overlay permission after request: $granted');
-
-      if (granted == null || !granted) {
+      if (granted != true) {
         log('❌ System overlay permission denied');
         return false;
       }
@@ -307,13 +364,19 @@ Future<bool> _ensurePermissions() async {
     }
   }
 
-  final phoneGranted = await Permission.phone.status.then((s) => s.isGranted);
-  final overlayGranted = overlayPermission == true;
-  final notificationGranted = await Permission.notification.status.then((s) => s.isGranted);
+  // Final verification
+  final finalPhoneStatus = await Permission.phone.status;
+  final finalNotificationStatus = await Permission.notification.status;
+  final finalOverlayStatus = await SystemAlertWindow.checkPermissions();
 
-  log('Final permissions - Phone: $phoneGranted, Overlay: $overlayGranted, Notifications: $notificationGranted');
-  return phoneGranted && overlayGranted;
+  final finalResult = finalPhoneStatus.isGranted &&
+      finalNotificationStatus.isGranted &&
+      (finalOverlayStatus == true);
+
+  await PermissionManager.setPermissionsGranted(finalResult);
+  return finalResult;
 }
+
 
 Future<void> _showPermissionEducationDialog(BuildContext context) async {
   return showDialog(
@@ -331,7 +394,9 @@ Future<void> _showPermissionEducationDialog(BuildContext context) async {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('For call tracking and overlay features to work properly, please enable:'),
+          Text(
+            'For call tracking and overlay features to work properly, please enable:',
+          ),
           SizedBox(height: 12),
           Text('1. Phone permissions - to detect call states'),
           Text('2. Notifications - for background service alerts'),
@@ -339,7 +404,9 @@ Future<void> _showPermissionEducationDialog(BuildContext context) async {
           Text('4. Background activity - keep service running'),
           Text('5. Disable battery optimization - prevent killing'),
           SizedBox(height: 8),
-          Text('(MIUI users: Enable "Display pop-up windows while running in background")'),
+          Text(
+            '(MIUI users: Enable "Display pop-up windows while running in background")',
+          ),
         ],
       ),
       actions: [
@@ -390,7 +457,6 @@ void onBackgroundServiceStart(ServiceInstance service) async {
 
       service.setAsForegroundService();
       log('✅ Successfully set as foreground service');
-
     } catch (e) {
       log('❌ Foreground service failed, continuing as background: $e');
       // Continue as background service if foreground fails
@@ -441,13 +507,14 @@ void onBackgroundServiceStart(ServiceInstance service) async {
     // Listen for overlay close requests
     CallEventService.onOverlayCloseRequest = () async {
       try {
-        await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+        await SystemAlertWindow.closeSystemWindow(
+          prefMode: SystemWindowPrefMode.OVERLAY,
+        );
         log('✅ Overlay closed from background service');
       } catch (e) {
         log('❌ Error closing overlay from background: $e');
       }
     };
-
   } catch (e) {
     log('❌ Error initializing call service in background: $e');
   }
@@ -457,7 +524,9 @@ void onBackgroundServiceStart(ServiceInstance service) async {
     log('🛑 Stopping background service');
     try {
       await CallEventService.dispose();
-      await SystemAlertWindow.closeSystemWindow(prefMode: SystemWindowPrefMode.OVERLAY);
+      await SystemAlertWindow.closeSystemWindow(
+        prefMode: SystemWindowPrefMode.OVERLAY,
+      );
       OverlayManager.cleanup();
     } catch (e) {
       log('Error during service cleanup: $e');
@@ -512,7 +581,6 @@ Future<void> _initBackgroundService() async {
     // Test service configuration
     final isConfigured = await service.isRunning();
     log('🔍 Service configuration test - IsRunning: $isConfigured');
-
   } catch (e) {
     log('❌ Failed to configure background service: $e');
     // Don't rethrow - let the app continue without background service
@@ -558,7 +626,6 @@ Future<void> _startBackgroundService() async {
     } else {
       log('✅ Background service already running');
     }
-
   } catch (e) {
     log('❌ Exception during service startup: $e');
     log('🔄 Service may still work despite this error');
@@ -576,10 +643,19 @@ void main() async {
 
     // Filter out known non-fatal errors
     final nonFatalErrors = [
-      'GraphicBuffer', 'qdgralloc', 'AdrenoUtils', 'Gralloc4',
-      'AHardwareBuffer', 'format 56', 'Unknown Format',
-      'AccessibilityNodeInfo', 'AccessibilityRecord', 'LongArray',
-      'incremental_prop', 'miuilog', 'data_log_file'
+      'GraphicBuffer',
+      'qdgralloc',
+      'AdrenoUtils',
+      'Gralloc4',
+      'AHardwareBuffer',
+      'format 56',
+      'Unknown Format',
+      'AccessibilityNodeInfo',
+      'AccessibilityRecord',
+      'LongArray',
+      'incremental_prop',
+      'miuilog',
+      'data_log_file',
     ];
 
     if (nonFatalErrors.any((error) => msg.contains(error))) {
@@ -611,7 +687,6 @@ void main() async {
     log('✅ Overlay manager initialized');
 
     log('🎉 App initialization completed successfully');
-
   } catch (e) {
     log('❌ Critical error during app initialization: $e');
     // Continue anyway - app might still work partially
@@ -691,9 +766,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final notificationStatus = await Permission.notification.status;
       final overlayStatus = await SystemAlertWindow.checkPermissions();
 
-      log('Existing permissions - Phone: ${phoneStatus.isGranted}, Notifications: ${notificationStatus.isGranted}, Overlay: $overlayStatus');
+      log(
+        'Existing permissions - Phone: ${phoneStatus.isGranted}, Notifications: ${notificationStatus.isGranted}, Overlay: $overlayStatus',
+      );
 
-      return phoneStatus.isGranted && (overlayStatus == true) && notificationStatus.isGranted;
+      return phoneStatus.isGranted &&
+          (overlayStatus == true) &&
+          notificationStatus.isGranted;
     } catch (e) {
       log('Error checking existing permissions: $e');
       return false;
@@ -710,7 +789,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final permissionsGranted = await _ensurePermissions();
       setState(() {
         _permissionsGranted = permissionsGranted;
-        _initStatus = permissionsGranted ? 'Starting services...' : 'Missing permissions';
+        _initStatus = permissionsGranted
+            ? 'Starting services...'
+            : 'Missing permissions';
       });
 
       if (permissionsGranted) {
@@ -865,7 +946,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
               Text(
                 _initStatus,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
                 textAlign: TextAlign.center,
               ),
 
