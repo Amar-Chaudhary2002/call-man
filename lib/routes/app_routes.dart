@@ -3,6 +3,7 @@ import 'package:call_app/presentation/auth/login_with_password_screen.dart';
 import 'package:call_app/presentation/auth/otp_screen.dart';
 import 'package:call_app/presentation/auth/sign_in_screen.dart';
 import 'package:call_app/presentation/auth/sign_up_screen.dart';
+import 'package:call_app/presentation/dashboard/call_features/call_end_screen.dart';
 import 'package:call_app/presentation/dashboard/recent_call_screen.dart';
 import 'package:call_app/presentation/onboarding/block_spam_screen.dart';
 import 'package:call_app/presentation/onboarding/custom_dialer_screen.dart';
@@ -21,6 +22,7 @@ class AppRoutes {
   static const String loginSuccess = '/login-success';
   static const String loginWithPassword = '/login-password';
   static const String home = '/home';
+  static const String callInteractionScreen = '/call-interaction';
 
   static final routes = <String, WidgetBuilder>{
     welcome: (_) => const WelcomeScreen(),
@@ -33,5 +35,27 @@ class AppRoutes {
     // loginSuccess: (_) => const LoginSuccessScreen(),
     loginWithPassword: (_) => const LoginWithPasswordScreen(),
     home: (_) => const RecentCallScreen(),
+    callInteractionScreen: (_) => const CallInteractionScreen(),
   };
+
+  // You can also add a method to navigate with parameters
+  static void navigateToCallInteraction(
+      BuildContext context, {
+        String? phoneNumber,
+        String? callState,
+        String? callId,
+        String? timestamp,
+      }) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CallInteractionScreen(
+          phoneNumber: phoneNumber,
+          callState: callState,
+          callId: callId,
+          timestamp: timestamp,
+        ),
+      ),
+    );
+  }
 }

@@ -4,7 +4,19 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CallInteractionScreen extends StatefulWidget {
-  const CallInteractionScreen({super.key});
+  // Add parameters to receive data from overlay
+  final String? phoneNumber;
+  final String? callState;
+  final String? callId;
+  final String? timestamp;
+
+  const CallInteractionScreen({
+    super.key,
+    this.phoneNumber,
+    this.callState,
+    this.callId,
+    this.timestamp,
+  });
 
   @override
   _CallInteractionScreenState createState() => _CallInteractionScreenState();
@@ -12,12 +24,42 @@ class CallInteractionScreen extends StatefulWidget {
 
 class _CallInteractionScreenState extends State<CallInteractionScreen> {
   String selectedNotification = 'push';
-  TextEditingController notesController = TextEditingController();
+  late TextEditingController notesController;
+  late TextEditingController nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    notesController = TextEditingController();
+    nameController = TextEditingController();
+
+    // Pre-fill with any call data if available
+    if (widget.phoneNumber?.isNotEmpty == true) {
+      // You could also pre-fill notes with call details
+      notesController.text = 'Call ${widget.callState ?? 'interaction'} at ${widget.timestamp ?? 'unknown time'}';
+    }
+  }
+
+  String get displayPhoneNumber => widget.phoneNumber ?? '+1 (555) 123-4567';
+  String get displayCallStatus => widget.callState ?? 'ended';
+
+  String get displayTimeRange {
+    if (widget.timestamp != null) {
+      try {
+        final dateTime = DateTime.parse(widget.timestamp!);
+        final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+        return '$timeStr - ${displayCallStatus.toUpperCase()}';
+      } catch (e) {
+        return '12:04-2:48 PM';
+      }
+    }
+    return '12:04-2:48 PM';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
           begin: Alignment.centerLeft,
@@ -26,65 +68,15 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        // appBar: PreferredSize(
-        //   preferredSize: Size.fromHeight(70.h),
-        //   child: Container(
-        //     decoration: BoxDecoration(
-        //       color: Color(0xFF1E293B),
-        //       border: Border(
-        //         bottom: BorderSide(color: Color(0xFF475569), width: 1),
-        //       ),
-        //     ),
-        //     child: SafeArea(
-        //       child: Padding(
-        //         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        //         child: Row(
-        //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //           children: [
-        //             Row(
-        //               children: [
-        //                 Icon(Icons.close, color: Colors.red, size: 20.sp),
-        //                 SizedBox(width: 8.w),
-        //                 Column(
-        //                   crossAxisAlignment: CrossAxisAlignment.start,
-        //                   mainAxisAlignment: MainAxisAlignment.center,
-        //                   children: [
-        //                     Text(
-        //                       'Call Ended',
-        //                       style: GoogleFonts.poppins(
-        //                         color: Colors.red,
-        //                         fontWeight: FontWeight.w600,
-        //                         fontSize: 14.sp,
-        //                       ),
-        //                     ),
-        //                     Text(
-        //                       '12:04-2:48 PM',
-        //                       style: GoogleFonts.poppins(
-        //                         color: Colors.grey[400],
-        //                         fontSize: 12.sp,
-        //                       ),
-        //                     ),
-        //                   ],
-        //                 ),
-        //               ],
-        //             ),
-        //             Icon(Icons.close, color: Colors.red, size: 20.sp),
-        //           ],
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
         body: SingleChildScrollView(
           padding: EdgeInsets.all(16.w),
           child: Container(
-            margin: EdgeInsets.only(top: 35),
+            margin: const EdgeInsets.only(top: 35),
             decoration: BoxDecoration(
-              color: Color(0xFF1B2638),
-              border: Border.all(color: Color(0xFFE5E7EB), width: 0.1.w),
+              color: const Color(0xFF1B2638),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 0.1.w),
               borderRadius: BorderRadius.circular(16),
             ),
-            // padding: const EdgeInsets.only(left: 10, right: 12),
             alignment: Alignment.center,
             child: Column(
               children: [
@@ -93,7 +85,6 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                     horizontal: 16.w,
                     vertical: 8.h,
                   ),
-
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -114,7 +105,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                                 ),
                               ),
                               Text(
-                                '12:04-2:48 PM',
+                                displayTimeRange,
                                 style: GoogleFonts.poppins(
                                   color: Colors.grey[400],
                                   fontSize: 12.sp,
@@ -124,11 +115,14 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                           ),
                         ],
                       ),
-                      Icon(Icons.close, color: Colors.red, size: 20.sp),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                      ),
                     ],
                   ),
                 ),
-                Divider(color: Color(0xFFE5E7EB), thickness: 0.12),
+                const Divider(color: Color(0xFFE5E7EB), thickness: 0.12),
                 Padding(
                   padding: const EdgeInsets.only(
                     left: 10,
@@ -175,7 +169,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
   Widget _buildCustomerInfoSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFF2D394D),
+        color: const Color(0xFF2D394D),
         borderRadius: BorderRadius.circular(12.r),
       ),
       padding: EdgeInsets.all(16.w),
@@ -218,7 +212,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                           end: Alignment.centerRight,
                         ),
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(
                             color: Color(0x1A000000),
                             offset: Offset(0, 10),
@@ -234,18 +228,15 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                         ],
                       ),
                       child: TextField(
-                        // controller: controller,
-                        // obscureText: obscureText,
-                        // keyboardType: keyboardType,
+                        controller: nameController,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: "json",
+                          hintText: "Enter name...",
                           hintStyle: GoogleFonts.roboto(
                             color: Colors.white70,
                             fontSize: 12.63,
                             fontWeight: FontWeight.w400,
                           ),
-                          // suffixIcon: icon != null ? Icon(icon, color: Colors.white54) : null,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 18,
@@ -293,12 +284,12 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
                     SizedBox(height: 4.h),
                     Container(
                       decoration: BoxDecoration(
-                        color: Color(0xFF475569),
+                        color: const Color(0xFF475569),
                         borderRadius: BorderRadius.circular(8.r),
                       ),
                       padding: EdgeInsets.all(12.w),
                       child: Text(
-                        '+1 (555) 123-4567',
+                        displayPhoneNumber,
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 14.sp,
@@ -422,7 +413,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
         SizedBox(height: 12.h),
         Container(
           decoration: BoxDecoration(
-            color: Color(0xFF334155),
+            color: const Color(0xFF334155),
             borderRadius: BorderRadius.circular(12.r),
           ),
           padding: EdgeInsets.all(20.w),
@@ -431,7 +422,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Color(0xFF475569),
+                  color: const Color(0xFF475569),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 padding: EdgeInsets.all(8.w),
@@ -456,7 +447,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
   Widget _buildIconButton(IconData icon) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFF475569),
+        color: const Color(0xFF475569),
         borderRadius: BorderRadius.circular(20.r),
       ),
       padding: EdgeInsets.all(8.w),
@@ -497,7 +488,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
         SizedBox(height: 12.h),
         Container(
           decoration: BoxDecoration(
-            color: Color(0xFF334155),
+            color: const Color(0xFF334155),
             borderRadius: BorderRadius.circular(12.r),
           ),
           padding: EdgeInsets.all(12.w),
@@ -604,12 +595,21 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () {
-          // Handle save action
-          print('Save interaction');
+          // Handle save action with the call data
+          print('Save interaction for ${widget.phoneNumber}');
+          print('Call ID: ${widget.callId}');
+          print('Call State: ${widget.callState}');
+          print('Timestamp: ${widget.timestamp}');
+          print('Notes: ${notesController.text}');
+          print('Name: ${nameController.text}');
+
+          // You can save this data to your database here
+          // Then navigate back or show success message
+          Navigator.pop(context);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF1E293B),
+          foregroundColor: const Color(0xFF1E293B),
           padding: EdgeInsets.symmetric(vertical: 16.h),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
@@ -630,6 +630,7 @@ class _CallInteractionScreenState extends State<CallInteractionScreen> {
   @override
   void dispose() {
     notesController.dispose();
+    nameController.dispose();
     super.dispose();
   }
 }
