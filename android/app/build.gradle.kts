@@ -27,7 +27,7 @@ android {
         applicationId = "com.example.call_app"
 
         // ✅ Kotlin DSL requires function calls instead of assignments
-        minSdk = 23
+        minSdkVersion flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode

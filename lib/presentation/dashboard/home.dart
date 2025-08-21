@@ -28,7 +28,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isRefreshing = false;
-
   int _currentNavIndex = 0;
   int _homeTabIndex = 0;
   final CallTrackingService _callService = CallTrackingService.instance;
@@ -37,7 +36,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = false;
   bool _permissionsGranted = false;
   //  UserModel? _userModel;
-
   // Dashboard specific variables
   String selectedFilter = 'All';
   String selectedPeriod = 'Today';
